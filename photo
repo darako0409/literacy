@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>column</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- google font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- oswald -->
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500&display=swap" rel="stylesheet">
+    <!-- 日本語NotoSansJP -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP&display=swap" rel="stylesheet">
+    <!-- /google font -->
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 class="title">Photo Gallery</h1>
+        </header>
+        <div class="flex">
+            <section class="box">
+                <h1>写真名</h1>
+                <figure>
+                    <a href="#"><img src="https://picsum.photos/200/200?random=1"></a>
+                    <figcaption>
+                        ここに写真の説明文が入ります。figcaptionという要素で写真のキャプションとなります。</figcaption>
+                </figure>
+            </section>
+            <section class="box">
+                <h1>写真名</h1>
+                <figure>
+                    <a href="#"><img src="https://picsum.photos/200/200?random=2"></a>
+                    <figcaption>
+                        ここに写真の説明文が入ります。figcaptionという要素で写真のキャプションとなります。</figcaption>
+                </figure>
+            </section>
+            <section class="box">
+                <h1>写真名</h1>
+                <figure>
+                    <a href="#"><img src="https://picsum.photos/200/200?random=3"></a>
+                    <figcaption>
+                        ここに写真の説明文が入ります。figcaptionという要素で写真のキャプションとなります。</figcaption>
+                </figure>
+            </section>
+        </div>
+    </div>
+</body>
+</html>
