@@ -37,12 +37,10 @@
         <p>© 2025 サンプルサイト</p>
     </footer>
 </body>
-    <title>塾 生徒データ</title>
+   <title>塾 生徒一覧</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
             background-color: #f4f4f4;
         }
         header {
@@ -51,98 +49,42 @@
             padding: 15px 0;
             text-align: center;
         }
-        section {
-            margin: 20px;
-            padding: 20px;
+        .student-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .student-list li {
             background-color: white;
+            margin: 10px;
+            padding: 10px;
             border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            box-shadow: 0 0 5px rgba(0,0,0,0.1);
         }
-        h2 {
-            color: #333;
+        .student-list a {
+            text-decoration: none;
+            color: #4CAF50;
+            font-weight: bold;
         }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-        }
-        table, th, td {
-            border: 1px solid #ddd;
-        }
-        th, td {
-            padding: 12px;
-            text-align: center;
-        }
-        th {
-            background-color: #4CAF50;
-            color: white;
-        }
-        .goal {
-            color: #FF6347;
+        .student-list a:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
 <body>
 
     <header>
-        <h1>塾の生徒データ</h1>
+        <h1>生徒一覧</h1>
     </header>
 
-    <!-- 成績セクション -->
-    <section id="grades">
-        <h2>生徒の成績</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>名前</th>
-                    <th>科目</th>
-                    <th>点数</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>山田太郎</td>
-                    <td>数学</td>
-                    <td>85</td>
-                </tr>
-                <tr>
-                    <td>山田太郎</td>
-                    <td>英語</td>
-                    <td>90</td>
-                </tr>
-                <tr>
-                    <td>佐藤花子</td>
-                    <td>数学</td>
-                    <td>78</td>
-                </tr>
-                <tr>
-                    <td>佐藤花子</td>
-                    <td>英語</td>
-                    <td>88</td>
-                </tr>
-            </tbody>
-        </table>
-    </section>
-
-    <!-- 課題セクション -->
-    <section id="assignments">
-        <h2>最近の課題</h2>
-        <ul>
-            <li>数学: 練習問題集 (期限: 2025年3月10日)</li>
-            <li>英語: リーディングの練習 (期限: 2025年3月12日)</li>
-            <li>国語: 古典の理解度チェック (期限: 2025年3月15日)</li>
+    <section>
+        <h2>生徒ごとの成績と目標</h2>
+        <ul class="student-list">
+            <li><a href="student1.html">山田太郎</a></li>
+            <li><a href="student2.html">佐藤花子</a></li>
+            <li><a href="student3.html">鈴木一郎</a></li>
         </ul>
     </section>
 
-    <!-- 目標セクション -->
-    <section id="goals">
-        <h2>学習目標</h2>
-        <ul>
-            <li><strong>山田太郎:</strong> 英語のスピーキング力向上（目標点: 95点）</li>
-            <li><strong>佐藤花子:</strong> 数学の基礎理解（目標点: 85点）</li>
-            <li><strong>鈴木一郎:</strong> 国語の読解力向上（目標点: 90点）</li>
-        </ul>
-    </section>
 
     <footer>
         <p style="text-align:center; padding: 20px;">© 2025 塾の名前</p>
