@@ -11,8 +11,11 @@ const firebaseConfig = {
 };
 
 // Firebaseの初期化
-const app = firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
+import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
 // 生徒データを追加
 const form = document.getElementById("addStudentForm");
@@ -23,22 +26,32 @@ form.addEventListener("submit", function(e) {
     const score = document.getElementById("score").value;
 
     // Firebase Realtime Databaseにデータを追加
-    db.ref("students").push({
+    const studentsRef = ref(db, 'students'); // Realtime Databaseの「students」参照を作成
+    push(studentsRef, {
         name: name,
         score: score
+    })
+    .then(() => {
+        // データが正常に追加された後の処理
+        console.log('データが正常に追加されました');
+        
+        // フォームをリセット
+        document.getElementById("name").value = '';
+        document.getElementById("score").value = '';
+    })
+    .catch((error) => {
+        // エラーハンドリング
+        console.error('データの追加に失敗しました:', error);
     });
-
-    // フォームをリセット
-    document.getElementById("name").value = '';
-    document.getElementById("score").value = '';
 });
 
 // 生徒データを表示
-db.ref("students").on("value", function(snapshot) {
-    const studentList = document.getElementById("studentList");
+const studentList = document.getElementById("studentList");
+
+onValue(ref(db, 'students'), (snapshot) => {
     studentList.innerHTML = ''; // 一度リストをクリア
 
-    snapshot.forEach(function(childSnapshot) {
+    snapshot.forEach((childSnapshot) => {
         const student = childSnapshot.val();
         const li = document.createElement("li");
         li.textContent = `名前: ${student.name}, 成績: ${student.score}`;
