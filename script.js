@@ -49,6 +49,7 @@ form.addEventListener("submit", function(e) {
 const studentList = document.getElementById("studentList");
 
 onValue(ref(db, 'students'), (snapshot) => {
+    console.log('データを読み込みました:', snapshot.val());  // データ確認用にコンソールに表示
     studentList.innerHTML = ''; // 一度リストをクリア
 
     snapshot.forEach((childSnapshot) => {
