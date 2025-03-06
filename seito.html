@@ -4,65 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>サンプルページ</title>
-</head>
-<body>
-    <header>
-        <h1>こんにちは！Webページへようこそ</h1>
-    </header>
-    
-    <nav>
-        <ul>
-            <li><a href="#home">ホーム</a></li>
-            <li><a href="#about">About</a></li>
-            <li><a href="#contact">お問い合わせ</a></li>
-        </ul>
-    </nav>
-
-    <section id="home">
-        <h2>ホーム</h2>
-        <p>ここはホームページのセクションです。</p>
-    </section>
-
-    <section id="about">
-        <h2>About</h2>
-        <p>こちらはサイトについての情報です。</p>
-    </section>
-
-    <section id="contact">
-        <h2>お問い合わせ</h2>
-        <p>ここにお問い合わせ情報を追加できます。</p>
-    </section>
-
-    <footer>
-        <p>© 2025 サンプルサイト</p>
-    </footer>
-</body>
-   <title>塾 生徒一覧</title>
-    <script>
-        var password = "491"; // ここを「491」に変更
-        var attempts = 3; // 最大試行回数
-
-        function checkPassword() {
-            var userPassword = prompt("このページにアクセスするにはパスワードを入力してください:");
-            if (userPassword === password) {
-                document.getElementById("content").style.display = "block"; // パスワードが正しい場合、コンテンツを表示
-            } else {
-                attempts--;
-                if (attempts > 0) {
-                    alert("パスワードが間違っています。残り試行回数: " + attempts);
-                    checkPassword(); // 再度パスワードを尋ねる
-                } else {
-                    alert("試行回数を超えました。ページを閉じます。");
-                    window.close(); // 試行回数がゼロになったらページを閉じる
-                }
-            }
-        }
-</script>
     <style>
         body {
             font-family: Arial, sans-serif;
             background-color: #f4f4f4;
-            onload="checkPassword()"
         }
         header {
             background-color: #007840;
@@ -90,6 +35,27 @@
             text-decoration: underline;
         }
     </style>
+    <script>
+        var password = "491"; // 設定したいパスワード
+        var attempts = 3; // 最大試行回数
+
+        // パスワードをチェックする関数
+        function checkPasswordAndRedirect(url) {
+            var userPassword = prompt("このリンクにアクセスするにはパスワードを入力してください:");
+            if (userPassword === password) {
+                window.location.href = url; // 正しいパスワードであれば、指定されたURLに遷移
+            } else {
+                attempts--;
+                if (attempts > 0) {
+                    alert("パスワードが間違っています。残り試行回数: " + attempts);
+                    checkPasswordAndRedirect(url); // 再度パスワードを尋ねる
+                } else {
+                    alert("試行回数を超えました。ページを閉じます。");
+                    window.close(); // 試行回数がゼロになったらページを閉じる
+                }
+            }
+        }
+    </script>
 </head>
 <body>
 
@@ -100,14 +66,15 @@
     <section>
         <h2>生徒ごとの成績と目標</h2>
         <ul class="student-list">
-            <li><a href="student1.html">山田太郎</a></li>
+            <li><a href="javascript:void(0);" onclick="checkPasswordAndRedirect('student1.html')">山田太郎</a></li>
             <li><a href="student2.html">佐藤花子</a></li>
             <li><a href="student3.html">鈴木一郎</a></li>
         </ul>
     </section>
 
-
     <footer>
         <p style="text-align:center; padding: 20px;">© 2025 塾の名前</p>
     </footer>
+
+</body>
 </html>
