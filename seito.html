@@ -4,26 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>サンプルページ</title>
-<script>
-        var password = "491"; // ここを「491」に変更
-        var attempts = 3; // 最大試行回数
-
-        function checkPassword() {
-            var userPassword = prompt("このページにアクセスするにはパスワードを入力してください:");
-            if (userPassword === password) {
-                document.getElementById("content").style.display = "block"; // パスワードが正しい場合、コンテンツを表示
-            } else {
-                attempts--;
-                if (attempts > 0) {
-                    alert("パスワードが間違っています。残り試行回数: " + attempts);
-                    checkPassword(); // 再度パスワードを尋ねる
-                } else {
-                    alert("試行回数を超えました。ページを閉じます。");
-                    window.close(); // 試行回数がゼロになったらページを閉じる
-                }
-            }
-        }
-</script>
 </head>
 <body>
     <header>
@@ -58,6 +38,26 @@
     </footer>
 </body>
    <title>塾 生徒一覧</title>
+    <script>
+        var password = "491"; // ここを「491」に変更
+        var attempts = 3; // 最大試行回数
+
+        function checkPassword() {
+            var userPassword = prompt("このページにアクセスするにはパスワードを入力してください:");
+            if (userPassword === password) {
+                document.getElementById("content").style.display = "block"; // パスワードが正しい場合、コンテンツを表示
+            } else {
+                attempts--;
+                if (attempts > 0) {
+                    alert("パスワードが間違っています。残り試行回数: " + attempts);
+                    checkPassword(); // 再度パスワードを尋ねる
+                } else {
+                    alert("試行回数を超えました。ページを閉じます。");
+                    window.close(); // 試行回数がゼロになったらページを閉じる
+                }
+            }
+        }
+</script>
     <style>
         body {
             font-family: Arial, sans-serif;
