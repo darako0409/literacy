@@ -4,19 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>生徒管理システム</title>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js"></script>
+
 </head>
 <body>
 
     <h1>生徒管理システム</h1>
 
-    <!-- フォームに autocomplete 属性を追加 -->
     <form id="addStudentForm" autocomplete="on">
         <label for="name">名前:</label>
-        <!-- 名前フィールドに autocomplete 属性を追加 -->
         <input type="text" id="name" name="name" autocomplete="name" required><br><br>
         
         <label for="score">成績:</label>
-        <!-- 成績フィールドに autocomplete 属性を追加 -->
         <input type="number" id="score" name="score" autocomplete="off" required><br><br>
         
         <button type="submit">追加</button>
@@ -26,6 +28,56 @@
     <ul id="studentList">
         <!-- 生徒情報がここに表示されます -->
     </ul>
+
+    <!-- Firebaseの設定と初期化 -->
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyCeTizgI6pDOX4gHSQQu9Jk3Fu8venij5E",
+            authDomain: "seitokannri.firebaseapp.com",
+            databaseURL: "https://seitokannri-default-rtdb.firebaseio.com",
+            projectId: "seitokannri",
+            storageBucket: "seitokannri.firebasestorage.app",
+            messagingSenderId: "45828446660",
+            appId: "1:45828446660:web:d1a445f8e293c46ec46c91",
+            measurementId: "G-71LQ8YKRKF"
+        };
+
+        // Firebase初期化
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // 生徒データを追加
+        const form = document.getElementById("addStudentForm");
+        form.addEventListener("submit", function(e) {
+            e.preventDefault();
+
+            const name = document.getElementById("name").value;
+            const score = document.getElementById("score").value;
+
+            // Firebase Realtime Databaseにデータを追加
+            db.ref("students").push({
+                name: name,
+                score: score
+            });
+
+            // フォームをリセット
+            document.getElementById("name").value = '';
+            document.getElementById("score").value = '';
+        });
+
+        // 生徒データを表示
+        db.ref("students").on("value", function(snapshot) {
+            const studentList = document.getElementById("studentList");
+            studentList.innerHTML = ''; // 一度リストをクリア
+
+            snapshot.forEach(function(childSnapshot) {
+                const student = childSnapshot.val();
+                const li = document.createElement("li");
+                li.textContent = `名前: ${student.name}, 成績: ${student.score}`;
+                studentList.appendChild(li);
+            });
+        });
+    </script>
 
 </body>
 </html>
