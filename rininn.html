@@ -21,24 +21,41 @@
         }
         h1, h2 {
             color: #343a40;
+            cursor: pointer;
         }
-        ul {
+        .content {
+            display: none;
             text-align: left;
         }
     </style>
+    <script>
+        function toggleContent(id) {
+            var content = document.getElementById(id);
+            if (content.style.display === "none" || content.style.display === "") {
+                content.style.display = "block";
+            } else {
+                content.style.display = "none";
+            }
+        }
+    </script>
 </head>
 <body>
     <div class="container">
         <h1>離任式プログラム</h1>
         
-        <h2>元講師からのメッセージ</h2>
+        <h2 onclick="toggleContent('message')">元講師からのメッセージ</h2>
+        <div id="message" class="content">
+            <p>（元講師のメッセージ内容）</p>
+        </div>
         
-        <h2>開会の言葉</h2>
-        <p>春の暖かな陽ざしに包まれ、草木が芽吹く季節となりました。</p>
-        <p>雨の中ご参列いただき、ありがとうございます。</p>
-        <p>今日は、お世話になった先生方をお送りする大切な式です。</p>
-        <p>これまで私たちの正学館のために尽力してくださった先生方に、
-        感謝の気持ちを伝えるとともに、新たな門出を心からお祝いいたしましょう。</p>
+        <h2 onclick="toggleContent('opening')">開会の言葉</h2>
+        <div id="opening" class="content">
+            <p>春の暖かな陽ざしに包まれ、草木が芽吹く季節となりました。</p>
+            <p>雨の中ご参列いただき、ありがとうございます。</p>
+            <p>今日は、お世話になった先生方をお送りする大切な式です。</p>
+            <p>これまで私たちの正学館のために尽力してくださった先生方に、
+            感謝の気持ちを伝えるとともに、新たな門出を心からお祝いいたしましょう。</p>
+        </div>
         
         <h2>生徒から山田先生へ</h2>
         <h3>中学３年生編</h3>
