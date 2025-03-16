@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>講師ダービー：お題ルーレット</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+
+    h1 {
+      color: #2c3e50;
+      margin-bottom: 40px;
+    }
+
+    #roulette-box {
+      border: 5px solid #2c3e50;
+      border-radius: 12px;
+      padding: 20px 30px;
+      background: white;
+      font-size: 2em;
+      min-width: 300px;
+      text-align: center;
+      margin-bottom: 30px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #start-btn {
+      background: #e67e22;
+      color: white;
+      font-size: 1.2em;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 24px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    #start-btn:hover {
+      background: #d35400;
+    }
+
+    .final-result {
+      font-size: 2em;
+      color: #e74c3c;
+      margin-top: 20px;
+      animation: zoomIn 0.5s ease-in-out;
+    }
+
+    @keyframes zoomIn {
+      0% { transform: scale(0.5); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <h1>🎲 講師ダービー：お題ルーレット 🎯</h1>
+  <div id="roulette-box">？？？</div>
+  <button id="start-btn" onclick="startRoulette()">🎰 抽選スタート！</button>
+  <div id="result" class="final-result"></div>
+
+  <script>
+    const topics = [
+      "ジェスチャー対決",
+      "大声対決",
+      "変顔コンテスト",
+      "早口言葉チャレンジ",
+      "モノマネ対決",
+      "お絵描きバトル",
+      "一発ギャグ披露",
+      "しりとり5連勝",
+      "英語で自己紹介",
+      "全力ラジオ体操"
+    ];
+
+    const rouletteBox = document.getElementById('roulette-box');
+    const resultBox = document.getElementById('result');
+
+    let isRolling = false;
+
+    function startRoulette() {
+      if (isRolling) return;  // 連打防止
+      isRolling = true;
+      resultBox.textContent = "";
+
+      let count = 0;
+      const maxCount = 40; // 回転回数
+      const interval = 80; // 点滅スピード(ms)
+      const spin = setInterval(() => {
+        const randomIndex = Math.floor(Math.random() * topics.length);
+        rouletteBox.textContent = topics[randomIndex];
+        count++;
+        if (count >= maxCount) {
+          clearInterval(spin);
+          const finalTopic = topics[randomIndex];
+          resultBox.textContent = `✨ 選ばれたお題：${finalTopic} ✨`;
+          isRolling = false;
+        }
+      }, interval);
+    }
+  </script>
+</body>
+</html>
