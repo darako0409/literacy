@@ -66,7 +66,7 @@
       font-weight: bold; /* 見出しを太字に */
     }
 
-     .details {
+    .details {
       display: none;
       margin-top: 12px;
       padding: 10px;
@@ -252,20 +252,20 @@
       const detailDiv = eventDiv.querySelector('.details');
 
       if (detailDiv.style.display === 'block') {
-        detailDiv.style.animation = 'slideOut 0.5s ease-in-out';
+        detailDiv.style.animation = 'slideOutVertical 0.5s ease-in-out';
         setTimeout(() => {
           detailDiv.style.display = 'none';
         }, 500);
       } else {
         detailDiv.style.display = 'block';
-        detailDiv.style.animation = 'slideIn 0.5s ease-in-out';
+        detailDiv.style.animation = 'slideInVertical 0.5s ease-in-out';
       }
     }
 
     function closeAllDetails() {
       const detailsElements = document.querySelectorAll('.details');
       detailsElements.forEach(detail => {
-        detail.style.animation = 'slideOut 0.5s ease-in-out';
+        detail.style.animation = 'slideOutVertical 0.5s ease-in-out';
         setTimeout(() => {
           detail.style.display = 'none';
         }, 500);
