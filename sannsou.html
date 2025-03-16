@@ -1,83 +1,73 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>離任式プログラム</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f8f9fa;
-            text-align: center;
-            padding: 20px;
-        }
-        .container {
-            max-width: 600px;
-            margin: auto;
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
-        h1, h2 {
-            color: #343a40;
-            cursor: pointer;
-        }
-        .content {
-            display: none;
-            text-align: center;
-        }
-    </style>
-    <script>
-        function toggleContent(id) {
-            var content = document.getElementById(id);
-            if (content.style.display === "none" || content.style.display === "") {
-                content.style.display = "block";
-            } else {
-                content.style.display = "none";
-            }
-        }
-    </script>
+  <meta charset="UTF-8">
+  <title>三送会プログラム</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background-color: #f7f9fc;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+      background-color: #ffffff;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+      margin-bottom: 20px;
+    }
+    .event {
+      margin: 30px 0;
+      border-left: 6px solid #3498db;
+      padding-left: 15px;
+    }
+    .time {
+      font-size: 1.2em;
+      color: #2980b9;
+      font-weight: bold;
+    }
+    .title {
+      font-size: 1.5em;
+      color: #2c3e50;
+      margin-top: 5px;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>離任式プログラム</h1>
-        
-        <h2 onclick="toggleContent('message')">元講師からのメッセージ</h2>
-        <div id="message" class="content">
-            <p>（元講師のメッセージ内容）</p>
-        </div>
-        
-        <h2 onclick="toggleContent('opening')">開会の言葉</h2>
-        <div id="opening" class="content">
-            <p>春の暖かな陽ざしに包まれ、草木が芽吹く季節となりました。</p>
-            <p>雨の中ご参列いただき、ありがとうございます。</p>
-            <p>今日は、お世話になった先生方をお送りする大切な式です。</p>
-            <p>これまで私たちの正学館のために尽力してくださった先生方に、
-            感謝の気持ちを伝えるとともに、新たな門出を心からお祝いいたしましょう。</p>
-        </div>
-        
-        <h2 onclick="toggleContent('student_message')">生徒から山田先生へ</h2>
-        <div id="student_message" class="content">
-            <h3>中学３年生編</h3>
-            <p>泣き騒ぎながらも、勉学に励んでいた背中が昨日の事かのように思い出されるほど、
-            自習界隈でのハチマキやら印象深くにぎやかな代でしたね。</p>
-            <h3>各生徒からのメッセージ</h3>
-            <ul style="list-style: none; padding: 0;">
-                <li>高１編</li>
-                <li>高２編</li>
-                <li>高３編</li>
-            </ul>
-            <h3>講師からのメッセージ</h3>
-            <p>こうしがいうぅぅぅ</p>
-        </div>
-        
-        <h2 onclick="toggleContent('flower_presentation')">花束贈呈</h2>
-        <div id="flower_presentation" class="content">
-            <p>夏の抜き打ちテスト最優秀者　ぐっさん</p>
-        </div>
-        
-        <h2>記念撮影タイム</h2>
+  <div class="container">
+    <h1>🎓 三送会プログラム 🎉</h1>
+
+    <div class="event">
+      <div class="time">13:00〜14:00</div>
+      <div class="title">なぞなぞ大会 (チーム対抗)</div>
     </div>
+
+    <div class="event">
+      <div class="time">14:00〜15:30</div>
+      <div class="title">講師ダービー (チーム対抗)</div>
+    </div>
+
+    <div class="event">
+      <div class="time">15:30〜17:00</div>
+      <div class="title">以心伝心ゲーム (組対抗)</div>
+    </div>
+
+    <div class="event">
+      <div class="time">17:00〜</div>
+      <div class="title">景品お渡しタイム</div>
+      <div class="title">感想タイム (生徒＆講師)</div>
+    </div>
+
+    <div class="event">
+      <div class="time">18:00 終了予定</div>
+    </div>
+  </div>
 </body>
 </html>
