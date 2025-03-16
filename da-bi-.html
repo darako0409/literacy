@@ -2,73 +2,102 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>講師ダービー：お題ルーレット</title>
+  <title>講師ダービー・ルーレット</title>
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
-      background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+      background: linear-gradient(135deg, #74ebd5 0%, #acb6e5 100%);
       margin: 0;
       padding: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
       height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
     }
 
     h1 {
       color: #2c3e50;
-      margin-bottom: 40px;
+      margin-bottom: 30px;
     }
 
-    #roulette-box {
-      border: 5px solid #2c3e50;
-      border-radius: 12px;
-      padding: 20px 30px;
-      background: white;
-      font-size: 2em;
-      min-width: 300px;
-      text-align: center;
-      margin-bottom: 30px;
-      height: 60px;
+    .roulette-container {
+      position: relative;
+      width: 400px;
+      height: 400px;
+    }
+
+    .wheel {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 10px solid #34495e;
+      position: relative;
+      transition: transform 4s cubic-bezier(0.33, 1, 0.68, 1);
+    }
+
+    .segment {
+      position: absolute;
+      width: 50%;
+      height: 50%;
+      background: #f1c40f;
+      transform-origin: 100% 100%;
+      clip-path: polygon(0% 0%, 100% 0%, 100% 100%);
       display: flex;
       align-items: center;
       justify-content: center;
+      font-size: 0.8em;
+      font-weight: bold;
+      color: #2c3e50;
+      padding-right: 10px;
+      box-sizing: border-box;
+    }
+
+    .pointer {
+      position: absolute;
+      top: -20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0; 
+      height: 0; 
+      border-left: 15px solid transparent;
+      border-right: 15px solid transparent;
+      border-bottom: 20px solid #e74c3c;
+      z-index: 10;
     }
 
     #start-btn {
-      background: #e67e22;
-      color: white;
+      margin-top: 30px;
+      padding: 12px 24px;
       font-size: 1.2em;
+      background-color: #e67e22;
+      color: white;
       border: none;
       border-radius: 8px;
-      padding: 12px 24px;
       cursor: pointer;
       transition: background 0.3s;
     }
 
     #start-btn:hover {
-      background: #d35400;
+      background-color: #d35400;
     }
 
-    .final-result {
-      font-size: 2em;
-      color: #e74c3c;
+    #result {
       margin-top: 20px;
-      animation: zoomIn 0.5s ease-in-out;
-    }
-
-    @keyframes zoomIn {
-      0% { transform: scale(0.5); opacity: 0; }
-      100% { transform: scale(1); opacity: 1; }
+      font-size: 1.5em;
+      color: #2c3e50;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <h1>🎲 講師ダービー：お題ルーレット 🎯</h1>
-  <div id="roulette-box">？？？</div>
-  <button id="start-btn" onclick="startRoulette()">🎰 抽選スタート！</button>
-  <div id="result" class="final-result"></div>
+  <h1>🎡 講師ダービー・お題ルーレット 🎯</h1>
+  <div class="roulette-container">
+    <div class="pointer"></div>
+    <div class="wheel" id="wheel"></div>
+  </div>
+  <button id="start-btn" onclick="spinWheel()">🎰 抽選スタート！</button>
+  <div id="result"></div>
 
   <script>
     const topics = [
@@ -84,30 +113,36 @@
       "全力ラジオ体操"
     ];
 
-    const rouletteBox = document.getElementById('roulette-box');
-    const resultBox = document.getElementById('result');
+    const wheel = document.getElementById('wheel');
+    const result = document.getElementById('result');
+    let rotation = 0;
 
-    let isRolling = false;
+    // セグメント生成
+    const segmentAngle = 360 / topics.length;
+    topics.forEach((topic, index) => {
+      const segment = document.createElement('div');
+      segment.className = 'segment';
+      segment.style.transform = `rotate(${index * segmentAngle}deg)`;
+      segment.style.background = index % 2 === 0 ? "#f1c40f" : "#f39c12";
+      segment.innerHTML = topic;
+      wheel.appendChild(segment);
+    });
 
-    function startRoulette() {
-      if (isRolling) return;  // 連打防止
-      isRolling = true;
-      resultBox.textContent = "";
+    function spinWheel() {
+      result.textContent = "";
+      const randomSpin = Math.floor(Math.random() * 360) + 3600; // 10回転 + α
+      rotation += randomSpin;
 
-      let count = 0;
-      const maxCount = 40; // 回転回数
-      const interval = 80; // 点滅スピード(ms)
-      const spin = setInterval(() => {
-        const randomIndex = Math.floor(Math.random() * topics.length);
-        rouletteBox.textContent = topics[randomIndex];
-        count++;
-        if (count >= maxCount) {
-          clearInterval(spin);
-          const finalTopic = topics[randomIndex];
-          resultBox.textContent = `✨ 選ばれたお題：${finalTopic} ✨`;
-          isRolling = false;
-        }
-      }, interval);
+      wheel.style.transition = 'transform 4s cubic-bezier(0.33, 1, 0.68, 1)';
+      wheel.style.transform = `rotate(${rotation}deg)`;
+
+      // 結果表示
+      setTimeout(() => {
+        const normalizedRotation = rotation % 360;
+        const selectedIndex = Math.floor((360 - normalizedRotation + segmentAngle / 2) % 360 / segmentAngle);
+        const selectedTopic = topics[selectedIndex];
+        result.textContent = `✨ 選ばれたお題：${selectedTopic} ✨`;
+      }, 4100);
     }
   </script>
 </body>
