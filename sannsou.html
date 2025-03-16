@@ -5,49 +5,84 @@
   <title>三送会プログラム</title>
   <style>
     body {
-      font-family: 'Arial', sans-serif;
-      background-color: #f7f9fc;
       margin: 0;
-      padding: 20px;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #74ebd5 0%, #ACB6E5 100%);
+      min-height: 100vh;
+      position: relative;
+      overflow: hidden;
     }
+
+    /* 背景のキラキラアニメーション */
+    .background {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: url('https://www.transparenttextures.com/patterns/stardust.png');
+      opacity: 0.2;
+      z-index: 0;
+      animation: move 60s linear infinite;
+    }
+
+    @keyframes move {
+      from { background-position: 0 0; }
+      to { background-position: 1000px 1000px; }
+    }
+
     .container {
-      max-width: 800px;
-      margin: auto;
-      background-color: #ffffff;
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 40px auto;
+      background-color: rgba(255, 255, 255, 0.95);
       padding: 30px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      border-radius: 16px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
     }
+
     h1 {
       text-align: center;
       color: #2c3e50;
-      margin-bottom: 20px;
+      margin-bottom: 30px;
+      font-size: 2.5em;
     }
+
     .event {
-      margin: 20px 0;
+      margin: 25px 0;
+      padding: 20px;
       border-left: 6px solid #3498db;
-      padding-left: 15px;
+      border-radius: 8px;
+      background: #f0f8ff;
       cursor: pointer;
+      transition: background 0.3s;
     }
+
+    .event:hover {
+      background: #e6f2ff;
+    }
+
     .time {
       font-size: 1.2em;
       color: #2980b9;
       font-weight: bold;
     }
+
     .title {
-      font-size: 1.5em;
+      font-size: 1.6em;
       color: #2c3e50;
-      margin-top: 5px;
+      margin-top: 8px;
     }
+
     .details {
       display: none;
-      margin-top: 10px;
+      margin-top: 12px;
       padding: 10px;
       background-color: #ecf5ff;
       border-left: 4px solid #85c1e9;
       border-radius: 5px;
-      animation: fadeIn 0.3s ease-in-out;
+      animation: fadeIn 0.4s ease-in-out;
     }
+
     @keyframes fadeIn {
       from { opacity: 0; }
       to { opacity: 1; }
@@ -55,6 +90,8 @@
   </style>
 </head>
 <body>
+  <div class="background"></div>
+
   <div class="container">
     <h1>🎓 三送会プログラム 🎉</h1>
 
@@ -70,7 +107,7 @@
       <div class="time">14:00〜15:30</div>
       <div class="title">講師ダービー (チーム対抗)</div>
       <div class="details">
-        講師が本気を出す！？ 予想的中でチームにポイント！誰が1位になるか予想しよう🐎🔥
+        講師が本気を出す！？予想的中でチームにポイント！誰が1位になるか予想しよう🐎🔥
       </div>
     </div>
 
