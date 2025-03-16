@@ -24,9 +24,10 @@
       margin-bottom: 20px;
     }
     .event {
-      margin: 30px 0;
+      margin: 20px 0;
       border-left: 6px solid #3498db;
       padding-left: 15px;
+      cursor: pointer;
     }
     .time {
       font-size: 1.2em;
@@ -38,36 +39,71 @@
       color: #2c3e50;
       margin-top: 5px;
     }
+    .details {
+      display: none;
+      margin-top: 10px;
+      padding: 10px;
+      background-color: #ecf5ff;
+      border-left: 4px solid #85c1e9;
+      border-radius: 5px;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>🎓 三送会プログラム 🎉</h1>
 
-    <div class="event">
+    <div class="event" onclick="toggleDetails(this)">
       <div class="time">13:00〜14:00</div>
       <div class="title">なぞなぞ大会 (チーム対抗)</div>
+      <div class="details">
+        みんなで協力して難問なぞなぞを解こう！優勝チームにはご褒美あり！🧠✨
+      </div>
     </div>
 
-    <div class="event">
+    <div class="event" onclick="toggleDetails(this)">
       <div class="time">14:00〜15:30</div>
       <div class="title">講師ダービー (チーム対抗)</div>
+      <div class="details">
+        講師が本気を出す！？ 予想的中でチームにポイント！誰が1位になるか予想しよう🐎🔥
+      </div>
     </div>
 
-    <div class="event">
+    <div class="event" onclick="toggleDetails(this)">
       <div class="time">15:30〜17:00</div>
       <div class="title">以心伝心ゲーム (組対抗)</div>
+      <div class="details">
+        心をひとつに！チームワークで以心伝心。思いを合わせて勝利を掴め！💖📝
+      </div>
     </div>
 
-    <div class="event">
+    <div class="event" onclick="toggleDetails(this)">
       <div class="time">17:00〜</div>
       <div class="title">景品お渡しタイム</div>
       <div class="title">感想タイム (生徒＆講師)</div>
+      <div class="details">
+        楽しかった思い出を語ろう！豪華景品もあるよ🎁✨
+      </div>
     </div>
 
-    <div class="event">
+    <div class="event" onclick="toggleDetails(this)">
       <div class="time">18:00 終了予定</div>
+      <div class="details">
+        おつかれさまでした！また会いましょう😊🌸
+      </div>
     </div>
   </div>
+
+  <script>
+    function toggleDetails(eventDiv) {
+      const detailDiv = eventDiv.querySelector('.details');
+      detailDiv.style.display = (detailDiv.style.display === 'block') ? 'none' : 'block';
+    }
+  </script>
 </body>
 </html>
