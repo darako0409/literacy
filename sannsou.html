@@ -66,36 +66,36 @@
       font-weight: bold; /* 見出しを太字に */
     }
 
-    .details {
+     .details {
       display: none;
       margin-top: 12px;
       padding: 10px;
       background-color: #ecf5ff;
       border-left: 4px solid #85c1e9;
       border-radius: 5px;
-      animation: slideIn 0.5s ease-in-out;  /* 初期表示時スライドイン */
+      animation: slideInVertical 0.5s ease-in-out;  /* 上下方向のスライドイン */
     }
 
-    /* スライドイン/スライドアウトのアニメーション */
-    @keyframes slideIn {
+    /* スライドイン/スライドアウトのアニメーション（上下） */
+    @keyframes slideInVertical {
       from {
         opacity: 0;
-        transform: translateX(-100%); /* 初めは左側に隠れる */
+        transform: translateY(-100%); /* 初めは上に隠れる */
       }
       to {
         opacity: 1;
-        transform: translateX(0);
+        transform: translateY(0);
       }
     }
 
-    @keyframes slideOut {
+    @keyframes slideOutVertical {
       from {
         opacity: 1;
-        transform: translateX(0);  /* 現在位置 */
+        transform: translateY(0);  /* 現在位置 */
       }
       to {
         opacity: 0;
-        transform: translateX(-100%); /* 左側にスライドアウト */
+        transform: translateY(-100%); /* 上にスライドアウト */
       }
     }
 
