@@ -12,7 +12,6 @@
       position: relative;
     }
 
-    /* 動く光の粒Canvas背景 */
     #particle-bg {
       position: fixed;
       top: 0;
@@ -80,10 +79,31 @@
       from { opacity: 0; }
       to { opacity: 1; }
     }
+
+    /* BGMコントロールボタン */
+    #bgm-control {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 2;
+      background: #3498db;
+      color: white;
+      border: none;
+      border-radius: 50px;
+      padding: 12px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      transition: background 0.3s;
+    }
+
+    #bgm-control:hover {
+      background: #2980b9;
+    }
   </style>
 </head>
 <body>
-  <!-- 背景用Canvas -->
+  <!-- 動く背景Canvas -->
   <canvas id="particle-bg"></canvas>
 
   <div class="container">
@@ -130,14 +150,38 @@
     </div>
   </div>
 
-  <!-- プログラム展開スクリプト -->
+  <!-- 🎵 BGM 音楽ファイル（任意の音楽URLに変更可） -->
+  <audio id="bgm" loop>
+    <source src="https://darako0409.github.io/literacy/%E3%82%AD%E3%83%AB%E3%83%9F%E3%83%BC%E3%81%AE%E3%83%99%E3%82%A4%E3%83%99%E3%83%BC!_unregistered.mp3" type="audio/mp3">
+    ※音楽ファイルが再生できません。
+  </audio>
+
+  <!-- BGMコントロールボタン -->
+  <button id="bgm-control" onclick="toggleBGM()">🎵 音楽 再生</button>
+
   <script>
     function toggleDetails(eventDiv) {
       const detailDiv = eventDiv.querySelector('.details');
       detailDiv.style.display = (detailDiv.style.display === 'block') ? 'none' : 'block';
     }
 
-    // 背景Canvas アニメーション
+    // 🎵 BGM再生/停止 切り替え
+    const bgm = document.getElementById('bgm');
+    const bgmControl = document.getElementById('bgm-control');
+    let isPlaying = false;
+
+    function toggleBGM() {
+      if (!isPlaying) {
+        bgm.play();
+        bgmControl.textContent = '⏸️ 音楽 停止';
+      } else {
+        bgm.pause();
+        bgmControl.textContent = '🎵 音楽 再生';
+      }
+      isPlaying = !isPlaying;
+    }
+
+    // ✨ 背景Canvas アニメーション
     const canvas = document.getElementById('particle-bg');
     const ctx = canvas.getContext('2d');
     let particles = [];
@@ -150,7 +194,6 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    // パーティクル初期化
     for (let i = 0; i < 100; i++) {
       particles.push({
         x: Math.random() * canvas.width,
@@ -170,8 +213,6 @@
         ctx.fill();
         p.x += p.dx;
         p.y += p.dy;
-
-        // 画面外に出たら反対側に
         if (p.x < 0) p.x = canvas.width;
         if (p.x > canvas.width) p.x = 0;
         if (p.y < 0) p.y = canvas.height;
