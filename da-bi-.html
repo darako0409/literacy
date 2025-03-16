@@ -22,31 +22,37 @@
     }
 
     .slot-container {
-      width: 300px;
-      height: 60px;
+      display: flex;
+      justify-content: space-around;
+      width: 80%;
+      height: 250px;
+    }
+
+    .slot {
+      width: 60px;
+      height: 100%;
       overflow: hidden;
-      border: 5px solid #2c3e50;
-      border-radius: 10px;
+      border: 3px solid #34495e;
+      border-radius: 8px;
       background: white;
       position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
       box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
 
-    .slot-list {
-      position: absolute;
-      top: 0;
-      width: 100%;
-    }
-
     .slot-item {
-      height: 60px;
+      height: 40px;
       display: flex;
-      align-items: center;
       justify-content: center;
-      font-size: 1.5em;
-      font-weight: bold;
+      align-items: center;
+      font-size: 1.2em;
       color: #34495e;
+      font-weight: bold;
       border-bottom: 1px solid #ecf0f1;
+      box-sizing: border-box;
     }
 
     #start-btn {
@@ -76,7 +82,13 @@
 <body>
   <h1>🎰 講師ダービー・スロット抽選 🎲</h1>
   <div class="slot-container">
-    <div class="slot-list" id="slot-list">
+    <div class="slot" id="slot1">
+      <!-- JSで動的にお題を追加 -->
+    </div>
+    <div class="slot" id="slot2">
+      <!-- JSで動的にお題を追加 -->
+    </div>
+    <div class="slot" id="slot3">
       <!-- JSで動的にお題を追加 -->
     </div>
   </div>
@@ -97,69 +109,94 @@
       "全力ラジオ体操"
     ];
 
-    const slotList = document.getElementById('slot-list');
+    const slot1 = document.getElementById('slot1');
+    const slot2 = document.getElementById('slot2');
+    const slot3 = document.getElementById('slot3');
     const resultBox = document.getElementById('result');
 
-    // スロット内に複数回topicsを表示（繰り返し感）
-    const repeatedTopics = topics.concat(topics, topics);
-    repeatedTopics.forEach(topic => {
-      const item = document.createElement('div');
-      item.className = 'slot-item';
-      item.textContent = topic;
-      slotList.appendChild(item);
-    });
+    // スロットにお題を追加
+    const createSlotItems = (slotElement) => {
+      topics.forEach(topic => {
+        const item = document.createElement('div');
+        item.className = 'slot-item';
+        item.textContent = topic;
+        slotElement.appendChild(item);
+      });
+    };
 
-    let position = 0;
-    let speed = 20; // 初期スピード
-    let intervalId;
+    createSlotItems(slot1);
+    createSlotItems(slot2);
+    createSlotItems(slot3);
+
+    let positions = [0, 0, 0]; // 各スロットの位置
+    let speeds = [10, 10, 10]; // 各スロットの回転スピード
+    let intervalIds = [];
 
     function startSlot() {
       resultBox.textContent = "";
-      clearInterval(intervalId);
-      speed = 20;
-      position = 0;
-      slotList.style.transition = 'none';
-      slotList.style.top = '0px';
+      clearIntervals();
+      
+      positions = [0, 0, 0];
+      speeds = [10, 10, 10];
+      
+      // 各スロットをランダムで回転開始
+      intervalIds[0] = setInterval(() => { rotateSlot(slot1, 0); }, 50);
+      intervalIds[1] = setInterval(() => { rotateSlot(slot2, 1); }, 50);
+      intervalIds[2] = setInterval(() => { rotateSlot(slot3, 2); }, 50);
 
-      intervalId = setInterval(() => {
-        position += speed;
-        slotList.style.top = `-${position}px`;
-
-        if (position >= slotList.scrollHeight / 2) {
-          position = 0; // ループ感演出
-        }
-      }, 50);
-
-      // 減速 → 停止処理
+      // 2秒後に減速を開始
       setTimeout(() => {
-        clearInterval(intervalId);
+        clearIntervals();
         slowDown();
       }, 2000); // 2秒後に減速
     }
 
+    // スロットを回転させる関数
+    function rotateSlot(slotElement, slotIndex) {
+      positions[slotIndex] += speeds[slotIndex];
+      slotElement.style.transform = `translateY(-${positions[slotIndex]}px)`;
+
+      if (positions[slotIndex] >= slotElement.scrollHeight) {
+        positions[slotIndex] = 0; // ループさせる
+      }
+    }
+
+    // 減速処理
     function slowDown() {
       const deceleration = setInterval(() => {
-        if (speed > 1) {
-          speed -= 1;
-          position += speed;
-          slotList.style.top = `-${position}px`;
-
-          if (position >= slotList.scrollHeight / 2) {
-            position = 0;
+        let allStopped = true;
+        for (let i = 0; i < speeds.length; i++) {
+          if (speeds[i] > 1) {
+            speeds[i] -= 1;
+            positions[i] += speeds[i];
+            allStopped = false;
           }
-        } else {
+          document.querySelector(`#slot${i+1}`).style.transform = `translateY(-${positions[i]}px)`;
+        }
+
+        if (allStopped) {
           clearInterval(deceleration);
           finalizeResult();
         }
       }, 100);
     }
 
+    // 結果表示
     function finalizeResult() {
-      const itemHeight = 60;
-      const index = Math.floor((position + itemHeight / 2) / itemHeight) % topics.length;
-      const finalTopic = topics[index];
-      resultBox.textContent = `✨ 選ばれたお題：${finalTopic} ✨`;
+      const resultIndices = [];
+      for (let i = 0; i < 3; i++) {
+        const index = Math.floor((positions[i] + 20) / 40) % topics.length;
+        resultIndices.push(index);
+      }
+
+      resultBox.textContent = `✨ 選ばれたお題：${topics[resultIndices[0]]} / ${topics[resultIndices[1]]} / ${topics[resultIndices[2]]} ✨`;
+    }
+
+    // インターバルを停止する
+    function clearIntervals() {
+      intervalIds.forEach(id => clearInterval(id));
     }
   </script>
 </body>
 </html>
+
