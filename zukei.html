@@ -1,267 +1,178 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>立方体の切断シミュレーション</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-        }
-        #app-container {
-            width: 100vw;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
-        }
-        #canvas-container {
-            flex-grow: 1;
-            position: relative;
-        }
-        canvas {
-            display: block;
-        }
-        #ui-panel {
-            padding: 1rem;
-            background-color: white;
-            box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1), 0 -2px 4px -1px rgba(0, 0, 0, 0.06);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .message-box {
-            font-size: 1.25rem; /* text-xl */
-            font-weight: 700; /* font-bold */
-            color: #1f2937; /* text-gray-800 */
-        }
-        .reset-button {
-            padding: 0.5rem 1.5rem; /* px-6 py-2 */
-            background-color: #ef4444; /* bg-red-500 */
-            color: white;
-            font-weight: 600; /* font-semibold */
-            border-radius: 9999px; /* rounded-full */
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            transition: background-color 0.2s;
-            border: none;
-            cursor: pointer;
-        }
-        .reset-button:hover {
-            background-color: #dc2626; /* hover:bg-red-600 */
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>立方体切断デモ</title>
+  <style>
+    body { background: #20232a; color: #fff; margin: 0; font-family: sans-serif; }
+    #canvas-container { width: 100vw; height: 80vh; }
+    #controls { padding: 1em; background: #282c34; }
+    .btn { margin: 0.2em; }
+    .slider-label { margin-right: 8px; }
+  </style>
 </head>
 <body>
-    <div id="app-container">
-        <div id="canvas-container"></div>
-        <div id="ui-panel">
-            <h1 id="message" class="message-box">立方体の頂点を3つ選択してください。</h1>
-            <button id="reset-button" class="reset-button">リセット</button>
-        </div>
-    </div>
+  <h2>立方体切断デモ</h2>
+  <div id="canvas-container"></div>
+  <div id="controls">
+    <button class="btn" id="addCutPoint">切断点追加</button>
+    <button class="btn" id="clearCutPoints">切断点クリア</button>
+    <label class="slider-label">切断スライダー:</label>
+    <input type="range" min="0" max="1" step="0.01" value="0.5" id="cutSlider">
+    <span id="sliderValue">0.50</span>
+  </div>
+  <script type="module">
+    import * as THREE from "https://cdn.skypack.dev/three@0.150.1";
+    import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.150.1/examples/jsm/controls/OrbitControls.js";
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            let selectedPoints = [];
-            let cutFace = null;
-            const messageElement = document.getElementById('message');
-            const resetButton = document.getElementById('reset-button');
-            const canvasContainer = document.getElementById('canvas-container');
+    // === 基本セットアップ ===
+    const container = document.getElementById("canvas-container");
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color("#222");
 
-            // --- Three.js setup ---
-            const scene = new THREE.Scene();
-            scene.background = new THREE.Color(0xf0f0f0);
-            
-            const camera = new THREE.PerspectiveCamera(75, canvasContainer.clientWidth / canvasContainer.clientHeight, 0.1, 1000);
-            camera.position.set(2, 2, 5);
+    const camera = new THREE.PerspectiveCamera(45, container.clientWidth/container.clientHeight, 0.1, 100);
+    camera.position.set(2.5, 2.5, 2.5);
 
-            const renderer = new THREE.WebGLRenderer({ antialiasing: true });
-            renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
-            canvasContainer.appendChild(renderer.domElement);
-            
-            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    const renderer = new THREE.WebGLRenderer({antialias:true});
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    container.appendChild(renderer.domElement);
 
-            // Handle window resize
-            window.addEventListener('resize', () => {
-                camera.aspect = canvasContainer.clientWidth / canvasContainer.clientHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
-            });
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
 
-            // Add lighting
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-            scene.add(ambientLight);
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
-            directionalLight.position.set(0, 1, 1);
-            scene.add(directionalLight);
+    // === 立方体の定義 ===
+    const cubeSize = 1;
+    const geometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+    const material = new THREE.MeshNormalMaterial({transparent:true, opacity:0.3});
+    const cube = new THREE.Mesh(geometry, material);
+    scene.add(cube);
 
-            // Cube and vertices definition
-            const vertices = [
-                new THREE.Vector3(-1, -1, -1), new THREE.Vector3(1, -1, -1),
-                new THREE.Vector3(1, 1, -1), new THREE.Vector3(-1, 1, -1),
-                new THREE.Vector3(-1, -1, 1), new THREE.Vector3(1, -1, 1),
-                new THREE.Vector3(1, 1, 1), new THREE.Vector3(-1, 1, 1)
-            ];
+    // === 辺データ取得 ===
+    function getEdgeVertices(geometry) {
+      // 立方体の頂点リスト
+      const vertices = geometry.attributes.position.array;
+      // 立方体の辺（各頂点ペア）
+      // BoxGeometryの場合、各頂点は重複しているので、辺を手動で定義
+      return [
+        [0,1],[1,2],[2,3],[3,0], // 上面
+        [4,5],[5,6],[6,7],[7,4], // 下面
+        [0,4],[1,5],[2,6],[3,7]  // 側面
+      ].map(([a,b]) => [geometry.attributes.position.array.slice(a*3,a*3+3), geometry.attributes.position.array.slice(b*3,b*3+3)]);
+    }
+    const edges = getEdgeVertices(geometry);
 
-            const edges = [
-                [0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6],
-                [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]
-            ].map(pair => ({ start: vertices[pair[0]], end: vertices[pair[1]] }));
-            
-            // Create wireframe cube
-            const cubeGeometry = new THREE.BoxGeometry(2, 2, 2);
-            const cubeMaterial = new THREE.MeshBasicMaterial({ color: 0xcccccc, wireframe: true, transparent: true, opacity: 0.2 });
-            const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-            scene.add(cube);
+    // === 辺の可視化 ===
+    const edgeGroup = new THREE.Group();
+    edges.forEach(([v1,v2]) => {
+      const points = [new THREE.Vector3(...v1), new THREE.Vector3(...v2)];
+      const edgeGeo = new THREE.BufferGeometry().setFromPoints(points);
+      const edgeMat = new THREE.LineBasicMaterial({color:0xffffff});
+      const line = new THREE.Line(edgeGeo, edgeMat);
+      edgeGroup.add(line);
+    });
+    scene.add(edgeGroup);
 
-            // Create interactive spheres for each vertex
-            const pointMeshes = [];
-            const pointGeometry = new THREE.SphereGeometry(0.1, 32, 32);
-            const pointMaterial = new THREE.MeshBasicMaterial({ color: 0x333333 });
-            vertices.forEach((v, index) => {
-                const point = new THREE.Mesh(pointGeometry, pointMaterial.clone());
-                point.position.copy(v);
-                point.userData.isVertex = true;
-                point.userData.originalColor = new THREE.Color(0x333333);
-                point.userData.index = index;
-                scene.add(point);
-                pointMeshes.push(point);
-            });
-            
-            // --- Logic for cutting and UI interaction ---
-            const raycaster = new THREE.Raycaster();
-            const mouse = new THREE.Vector2();
+    // === 切断点データと可視化 ===
+    let cutPoints = []; // {edgeIdx, t:0~1}
+    const cutPointGroup = new THREE.Group();
+    scene.add(cutPointGroup);
 
-            function handlePointClick(pointMesh) {
-                if (selectedPoints.some(p => p.equals(pointMesh.position))) {
-                    return;
-                }
-                
-                if (selectedPoints.length < 3) {
-                    selectedPoints.push(pointMesh.position.clone());
-                    pointMesh.material.color.set(0xff0000);
+    function updateCutPoints() {
+      cutPointGroup.clear();
+      cutPoints.forEach(pt => {
+        const [v1, v2] = edges[pt.edgeIdx];
+        const p = [
+          v1[0] + (v2[0] - v1[0]) * pt.t,
+          v1[1] + (v2[1] - v1[1]) * pt.t,
+          v1[2] + (v2[2] - v1[2]) * pt.t
+        ];
+        const mesh = new THREE.Mesh(
+          new THREE.SphereGeometry(0.04, 16, 16),
+          new THREE.MeshBasicMaterial({color:0xff0000})
+        );
+        mesh.position.set(...p);
+        cutPointGroup.add(mesh);
+      });
+    }
 
-                    if (selectedPoints.length === 3) {
-                        messageElement.textContent = '切断面が作成されました！';
-                        calculateCutFace(selectedPoints);
-                    } else {
-                        messageElement.textContent = `頂点をあと${3 - selectedPoints.length}つ選択してください。`;
-                    }
-                }
-            }
+    // === 切断平面の可視化（スライダーに応じて） ===
+    let cutPlane = null;
+    function updateCutPlane() {
+      if(cutPlane) scene.remove(cutPlane);
 
-            function calculateCutFace(points) {
-                if (cutFace) {
-                    scene.remove(cutFace);
-                    cutFace = null;
-                }
+      // スライダー値で立方体内に平面を作る
+      const t = parseFloat(document.getElementById('cutSlider').value); // 0~1
+      const planeGeo = new THREE.PlaneGeometry(cubeSize, cubeSize);
+      const planeMat = new THREE.MeshBasicMaterial({color:0x00ff00, side:THREE.DoubleSide, transparent:true, opacity:0.2});
+      cutPlane = new THREE.Mesh(planeGeo, planeMat);
+      cutPlane.position.set(0, t*cubeSize - cubeSize/2, 0); // Y方向にスライド
+      cutPlane.rotation.x = Math.PI/2;
+      scene.add(cutPlane);
+    }
 
-                const [p1, p2, p3] = points;
-                const v1 = new THREE.Vector3().subVectors(p2, p1);
-                const v2 = new THREE.Vector3().subVectors(p3, p1);
-                const normal = new THREE.Vector3().crossVectors(v1, v2).normalize();
-                const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, p1);
+    // === 辺クリックで切断点追加 ===
+    renderer.domElement.addEventListener('pointerdown', e => {
+      const mouse = new THREE.Vector2(
+        (e.offsetX / renderer.domElement.width) * 2 - 1,
+        -(e.offsetY / renderer.domElement.height) * 2 + 1
+      );
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(mouse, camera);
+      let minDist = Infinity, minIdx = null, minT = null;
+      edges.forEach(([v1,v2], i) => {
+        // 辺を線分として最短距離計算
+        const p1 = new THREE.Vector3(...v1), p2 = new THREE.Vector3(...v2);
+        const intersect = closestPointOnLine(raycaster.ray, p1, p2);
+        const dist = intersect.point.distanceTo(raycaster.ray.origin);
+        if(dist < minDist && dist < 0.1) { // 近ければ選択
+          minDist = dist; minIdx = i; minT = intersect.t;
+        }
+      });
+      if(minIdx !== null) {
+        cutPoints.push({edgeIdx:minIdx, t:minT});
+        updateCutPoints();
+      }
+    });
+    function closestPointOnLine(ray, p1, p2) {
+      // 線分p1-p2上にrayから最短点
+      const v = new THREE.Vector3().subVectors(p2, p1);
+      const w = new THREE.Vector3().subVectors(ray.origin, p1);
+      const t = v.dot(w) / v.lengthSq();
+      return {point: new THREE.Vector3().addVectors(p1, v.multiplyScalar(t)), t:Math.max(0, Math.min(1, t))};
+    }
 
-                const intersectionPoints = [];
-                edges.forEach(edge => {
-                    const line = new THREE.Line3(edge.start, edge.end);
-                    const intersectionPoint = new THREE.Vector3();
-                    plane.intersectLine(line, intersectionPoint);
+    // === UIイベント ===
+    document.getElementById('addCutPoint').onclick = () => {
+      // ランダムな辺に切断点追加（デモ用）
+      const edgeIdx = Math.floor(Math.random()*edges.length);
+      const t = Math.random();
+      cutPoints.push({edgeIdx, t});
+      updateCutPoints();
+    };
+    document.getElementById('clearCutPoints').onclick = () => {
+      cutPoints = [];
+      updateCutPoints();
+    };
+    document.getElementById('cutSlider').oninput = e => {
+      document.getElementById('sliderValue').textContent = e.target.value;
+      updateCutPlane();
+    };
+    updateCutPlane();
 
-                    if (intersectionPoint && intersectionPoint.distanceTo(edge.start) < edge.start.distanceTo(edge.end) + 0.001 &&
-                        intersectionPoint.distanceTo(edge.end) < edge.start.distanceTo(edge.end) + 0.001) {
-                        
-                        const isDuplicate = intersectionPoints.some(p => p.distanceTo(intersectionPoint) < 0.001);
-                        if (!isDuplicate) {
-                            intersectionPoints.push(intersectionPoint);
-                        }
-                    }
-                });
+    // === レンダリングループ ===
+    function animate() {
+      controls.update();
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+    animate();
 
-                if (intersectionPoints.length < 3) {
-                    messageElement.textContent = '切断面を作成できませんでした。別の頂点を選択してください。';
-                    return;
-                }
-
-                // Sort the points to form a convex polygon
-                const center = new THREE.Vector3();
-                intersectionPoints.forEach(p => center.add(p));
-                center.divideScalar(intersectionPoints.length);
-
-                intersectionPoints.sort((a, b) => {
-                    const aVec = new THREE.Vector3().subVectors(a, center);
-                    const bVec = new THREE.Vector3().subVectors(b, center);
-                    return normal.dot(aVec.cross(bVec));
-                });
-
-                // Create a shape from the sorted points
-                const shape = new THREE.Shape(intersectionPoints.map(p => {
-                    const localX = new THREE.Vector3().subVectors(intersectionPoints[1], intersectionPoints[0]).normalize();
-                    const localY = new THREE.Vector3().crossVectors(normal, localX).normalize();
-                    const localOrigin = intersectionPoints[0];
-                    const localPos = new THREE.Vector3().subVectors(p, localOrigin);
-                    const x = localPos.dot(localX);
-                    const y = localPos.dot(localY);
-                    return new THREE.Vector2(x, y);
-                }));
-
-                const shapeGeometry = new THREE.ShapeGeometry(shape);
-                const cutFaceMaterial = new THREE.MeshPhongMaterial({ color: 0x33ff33, transparent: true, opacity: 0.5, side: THREE.DoubleSide });
-                const newCutFace = new THREE.Mesh(shapeGeometry, cutFaceMaterial);
-                
-                // Position and orient the cut face
-                const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
-                newCutFace.position.copy(center);
-                newCutFace.setRotationFromQuaternion(quaternion);
-                
-                scene.add(newCutFace);
-                cutFace = newCutFace;
-            }
-
-            function resetSimulation() {
-                if (cutFace) {
-                    scene.remove(cutFace);
-                    cutFace = null;
-                }
-                selectedPoints = [];
-                pointMeshes.forEach(point => {
-                    point.material.color.set(point.userData.originalColor);
-                });
-                messageElement.textContent = '立方体の頂点を3つ選択してください。';
-            }
-
-            // Event listeners
-            renderer.domElement.addEventListener('click', (event) => {
-                const rect = renderer.domElement.getBoundingClientRect();
-                mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-                mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-                raycaster.setFromCamera(mouse, camera);
-
-                const intersects = raycaster.intersectObjects(pointMeshes);
-
-                if (intersects.length > 0) {
-                    const intersectedPoint = intersects[0].object;
-                    handlePointClick(intersectedPoint);
-                }
-            }, false);
-
-            resetButton.addEventListener('click', resetSimulation);
-
-            // Animation loop
-            function animate() {
-                requestAnimationFrame(animate);
-                controls.update();
-                renderer.render(scene, camera);
-            }
-
-            animate();
-        });
-    </script>
+    // === 画面サイズ対応 ===
+    window.addEventListener("resize", () => {
+      camera.aspect = container.clientWidth/container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    });
+  </script>
 </body>
 </html>
