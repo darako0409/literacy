@@ -68,9 +68,10 @@
         <!-- 像の性質を表示するパネル -->
         <div id="imageProperties" class="bg-gray-100 p-4 rounded-lg shadow-inner mt-4 w-full max-w-2xl text-center text-gray-800">
             <h3 class="text-lg font-semibold mb-2">像の性質</h3>
-            <div class="flex justify-center space-x-8">
+            <div class="flex justify-center flex-wrap space-x-4 sm:space-x-8">
                 <p>種類: <span id="imageType" class="font-bold"></span></p>
                 <p>向き: <span id="imageOrientation" class="font-bold"></span></p>
+                <p>大きさ: <span id="imageSize" class="font-bold"></span></p>
             </div>
         </div>
 
@@ -96,6 +97,7 @@
             const messageBox = document.getElementById('messageBox');
             const imageTypeSpan = document.getElementById('imageType');
             const imageOrientationSpan = document.getElementById('imageOrientation');
+            const imageSizeSpan = document.getElementById('imageSize');
 
             // --- Canvas and Simulation State ---
             let isDragging = false;
@@ -103,6 +105,7 @@
             let initialMouseX;
             let initialObjectX;
             let initialFocalLength;
+            let dragFocalSide = null; // 'left' or 'right'
 
             const simState = {
                 lensType: 'convex', // 'convex' or 'concave'
@@ -266,124 +269,156 @@
                 // --- Ray Tracing Logic ---
                 const rayStart = { x: objectTipX, y: objectTipY };
 
-                // Ray 1: Parallel to axis, refracts through far focal point
-                const ray1LensPoint = { x: center.x, y: rayStart.y };
-                const ray1RefractedFocalPointX = simState.lensType === 'convex' ? F2x : F1x;
-                const m1 = (center.y - ray1LensPoint.y) / (ray1RefractedFocalPointX - ray1LensPoint.x);
-                const c1 = ray1LensPoint.y - m1 * ray1LensPoint.x;
+                // Calculate image properties using lens formula
+                let imageX = Infinity;
+                let imageY = Infinity;
+                let isReal = false;
+                let isUpright = false;
+                let imageSize = '不明';
 
+                if (simState.objectX !== 0) {
+                     const p = -simState.objectX; // object distance from lens
+                     const f = simState.lensType === 'convex' ? F : -F; 
+                     const q = (p * f) / (p - f); 
+                     
+                     isReal = (q > 0);
+                     imageX = center.x + q;
+                     
+                     const M = -q / p; 
+                     imageY = center.y - simState.objectHeight * M;
+                     
+                     isUpright = (M > 0);
+
+                     if (Math.abs(M) > 1) {
+                         imageSize = '大きい';
+                     } else if (Math.abs(M) < 1) {
+                         imageSize = '小さい';
+                     } else {
+                         imageSize = '同じ';
+                     }
+                } else {
+                     imageX = center.x;
+                     imageY = center.y - simState.objectHeight;
+                }
+                
+                // Ray 1: Parallel to axis
+                const ray1LensPoint = { x: center.x, y: rayStart.y };
                 ctx.strokeStyle = '#22c55e'; // green
                 ctx.lineWidth = 1;
                 ctx.beginPath();
                 ctx.moveTo(rayStart.x, rayStart.y);
                 ctx.lineTo(ray1LensPoint.x, ray1LensPoint.y);
                 ctx.stroke();
-
-                if (simState.lensType === 'convex') {
-                    ctx.beginPath();
-                    ctx.moveTo(ray1LensPoint.x, ray1LensPoint.y);
-                    ctx.lineTo(canvas.width, m1 * canvas.width + c1);
-                    ctx.stroke();
-                } else {
-                    const slope = (center.y - ray1LensPoint.y) / (F1x - ray1LensPoint.x);
-                    ctx.beginPath();
-                    ctx.moveTo(ray1LensPoint.x, ray1LensPoint.y);
-                    ctx.lineTo(canvas.width, ray1LensPoint.y + slope * (canvas.width - ray1LensPoint.x));
+                
+                // Draw refracted/extended Ray 1
+                ctx.beginPath();
+                ctx.moveTo(ray1LensPoint.x, ray1LensPoint.y);
+                if (simState.lensType === 'convex' && isReal) {
+                    ctx.lineTo(imageX, imageY);
+                } else if (simState.lensType === 'convex' && !isReal) { // Convex virtual image case
+                    const rayEnd = {
+                        x: canvas.width,
+                        y: (ray1LensPoint.y - F2x * center.y / F2x) / (ray1LensPoint.x - F2x) * (canvas.width - ray1LensPoint.x) + ray1LensPoint.y
+                    };
+                    ctx.lineTo(rayEnd.x, rayEnd.y);
                     ctx.stroke();
                     ctx.strokeStyle = '#cbd5e0';
                     ctx.setLineDash([5, 5]);
                     ctx.beginPath();
                     ctx.moveTo(ray1LensPoint.x, ray1LensPoint.y);
-                    ctx.lineTo(F1x, center.y);
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-                }
-
-                // Ray 2: Through lens center
-                const m2 = (center.y - rayStart.y) / (center.x - rayStart.x);
-                const c2 = rayStart.y - m2 * rayStart.x;
-                const imageX = (c2 - c1) / (m1 - m2);
-                const imageY = m1 * imageX + c1;
-
-                ctx.strokeStyle = '#ef4444'; // red
-                ctx.beginPath();
-                ctx.moveTo(rayStart.x, rayStart.y);
-                if (simState.lensType === 'convex' && simState.objectX > -F) {
-                    // Convex lens, virtual image case
-                    ctx.lineTo(center.x, center.y);
-                    ctx.stroke();
-                    ctx.strokeStyle = '#ef4444';
-                    ctx.setLineDash([5, 5]);
-                    ctx.beginPath();
-                    ctx.moveTo(center.x, center.y);
                     ctx.lineTo(imageX, imageY);
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-                } else if (simState.lensType === 'concave') {
-                    // Concave lens, always virtual
-                    ctx.lineTo(center.x, center.y);
-                    ctx.stroke();
-                    ctx.strokeStyle = '#ef4444';
-                    ctx.setLineDash([5, 5]);
-                    ctx.beginPath();
-                    ctx.moveTo(center.x, center.y);
-                    ctx.lineTo(imageX, imageY);
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-                } else {
+                } else if (simState.lensType === 'concave') { // Concave lens (always virtual)
+                     const m = (ray1LensPoint.y - center.y) / (ray1LensPoint.x - F1x);
+                     const b = ray1LensPoint.y - m * ray1LensPoint.x;
+                     ctx.lineTo(canvas.width, m * canvas.width + b);
+                     ctx.stroke();
+                     ctx.strokeStyle = '#cbd5e0';
+                     ctx.setLineDash([5, 5]);
                      ctx.beginPath();
-                    ctx.moveTo(rayStart.x, rayStart.y);
-                    ctx.lineTo(canvas.width, m2 * canvas.width + c2);
-                    ctx.stroke();
+                     ctx.moveTo(ray1LensPoint.x, ray1LensPoint.y);
+                     ctx.lineTo(imageX, imageY);
                 }
-
-                // Ray 3: Through near focal point (convex) or towards far focal point (concave), refracts parallel to axis
-                ctx.strokeStyle = '#3b82f6'; // blue
-                const ray3FocalX = simState.lensType === 'convex' ? F1x : F2x;
-                const m3 = (rayStart.y - center.y) / (rayStart.x - ray3FocalX);
-                const yOnLens = m3 * (center.x - ray3FocalX) + center.y;
+                ctx.stroke();
+                ctx.setLineDash([]);
                 
-                // Draw incident ray
+                // Ray 2: Through lens center
+                ctx.strokeStyle = '#ef4444'; // red
+                ctx.lineWidth = 1;
                 ctx.beginPath();
                 ctx.moveTo(rayStart.x, rayStart.y);
-                if (simState.lensType === 'convex') {
-                     ctx.lineTo(center.x, yOnLens);
+                if (isReal) {
+                    ctx.lineTo(imageX, imageY);
                 } else {
-                    ctx.lineTo(center.x, yOnLens);
+                    ctx.strokeStyle = '#ef4444';
+                    ctx.beginPath();
+                    const m = (rayStart.y - center.y) / (rayStart.x - center.x);
+                    const b = rayStart.y - m * rayStart.x;
+                    ctx.moveTo(rayStart.x, rayStart.y);
+                    ctx.lineTo(canvas.width, m * canvas.width + b);
                     ctx.stroke();
-                    ctx.strokeStyle = '#cbd5e0';
                     ctx.setLineDash([5, 5]);
                     ctx.beginPath();
-                    ctx.moveTo(center.x, yOnLens);
-                    ctx.lineTo(ray3FocalX, center.y);
+                    ctx.moveTo(rayStart.x, rayStart.y);
+                    ctx.lineTo(imageX, imageY);
                 }
                 ctx.stroke();
-                
-                // Draw refracted ray (parallel to optical axis)
-                ctx.strokeStyle = '#3b82f6';
                 ctx.setLineDash([]);
-                ctx.beginPath();
-                ctx.moveTo(center.x, yOnLens);
-                ctx.lineTo(canvas.width, yOnLens);
-                ctx.stroke();
 
-                // Calculate and draw the image
-                let isReal = false;
-                let isUpright = false;
-
+                // Ray 3: Through near focal point or towards far focal point, refracts parallel to axis
+                ctx.strokeStyle = '#3b82f6'; // blue
+                ctx.lineWidth = 1;
+                
                 if (simState.lensType === 'convex') {
-                    if (simState.objectX < -F) {
-                        isReal = true;
-                        isUpright = imageY > center.y; // 像が反転しているので、y座標は大きくなる
-                    } else { // -F < objectX < 0
-                        isReal = false;
-                        isUpright = imageY < center.y;
+                    if (isReal) {
+                        const ray3FocalX = F1x;
+                        const m3 = (rayStart.y - center.y) / (rayStart.x - ray3FocalX);
+                        const yOnLens = m3 * (center.x - ray3FocalX) + center.y;
+                        ctx.beginPath();
+                        ctx.moveTo(rayStart.x, rayStart.y);
+                        ctx.lineTo(center.x, yOnLens);
+                        ctx.stroke();
+                        ctx.beginPath();
+                        ctx.moveTo(center.x, yOnLens);
+                        ctx.lineTo(canvas.width, yOnLens);
+                    } else { // virtual
+                        ctx.strokeStyle = '#3b82f6';
+                        const yOnLens = (rayStart.y - center.y) / (rayStart.x - imageX) * (center.x - imageX) + center.y;
+                        ctx.beginPath();
+                        ctx.moveTo(rayStart.x, rayStart.y);
+                        ctx.lineTo(canvas.width, yOnLens);
+                        ctx.stroke();
+                        ctx.strokeStyle = '#cbd5e0';
+                        ctx.setLineDash([5, 5]);
+                        ctx.beginPath();
+                        ctx.moveTo(center.x, yOnLens);
+                        ctx.lineTo(imageX, imageY);
                     }
-                } else { // Concave lens
-                    isReal = false;
-                    isUpright = imageY < center.y;
-                }
+                } else if (simState.lensType === 'concave') {
+                     const ray3FocalX = F2x;
+                     const m3 = (center.y - rayStart.y) / (ray3FocalX - rayStart.x);
+                     const yOnLens = rayStart.y + m3 * (center.x - rayStart.x);
+                     
+                     ctx.beginPath();
+                     ctx.moveTo(rayStart.x, rayStart.y);
+                     ctx.lineTo(center.x, yOnLens);
+                     ctx.stroke();
 
+                     ctx.beginPath();
+                     ctx.moveTo(center.x, yOnLens);
+                     ctx.lineTo(canvas.width, yOnLens);
+                     ctx.stroke();
+
+                     ctx.strokeStyle = '#cbd5e0';
+                     ctx.setLineDash([5, 5]);
+                     ctx.beginPath();
+                     ctx.moveTo(center.x, yOnLens);
+                     ctx.lineTo(ray3FocalX, center.y);
+                }
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+
+                // Draw the image
                 const imageBase = { x: imageX, y: center.y };
                 const imageTip = { x: imageX, y: imageY };
                 
@@ -391,18 +426,15 @@
                     ctx.strokeStyle = '#9ca3af';
                     ctx.lineWidth = 2;
                     ctx.fillStyle = '#9ca3af';
-
-                    if (isReal) {
-                        drawArrow(imageBase.x, imageBase.y, imageTip.x, imageTip.y, '#9ca3af');
-                    } else {
-                        drawArrow(imageBase.x, imageBase.y, imageTip.x, imageTip.y, '#9ca3af', [5, 5]);
-                    }
+                    drawArrow(imageBase.x, imageBase.y, imageTip.x, imageTip.y, '#9ca3af', isReal ? [] : [5, 5]);
                     ctx.fillText('像', imageX - 5, imageTip.y - 10);
                 }
+
 
                 // Update properties text
                 imageTypeSpan.textContent = isReal ? '実像' : '虚像';
                 imageOrientationSpan.textContent = isUpright ? '正立（上下逆ではない）' : '倒立（上下逆）';
+                imageSizeSpan.textContent = imageSize;
             }
 
             // --- Drag and Drop Logic ---
@@ -420,8 +452,9 @@
                 e.preventDefault();
                 const pos = getCanvasCoordinates(e);
                 const objectX = center.x + simState.objectX;
-                const F1x = center.x - Math.abs(simState.focalLength);
-                const F2x = center.x + Math.abs(simState.focalLength);
+                const F = Math.abs(simState.focalLength);
+                const F1x = center.x - F;
+                const F2x = center.x + F;
 
                 // Check if user clicked on the object
                 if (Math.abs(pos.x - objectX) < 15 && Math.abs(pos.y - center.y) < Math.abs(simState.objectHeight)) {
@@ -432,9 +465,16 @@
                 }
                 
                 // Check if user clicked on a focal point
-                if ((Math.abs(pos.x - F1x) < 15 && Math.abs(pos.y - center.y) < 15) || (Math.abs(pos.x - F2x) < 15 && Math.abs(pos.y - center.y) < 15)) {
+                if (Math.abs(pos.x - F1x) < 15 && Math.abs(pos.y - center.y) < 15) {
                     isDragging = true;
                     dragTarget = 'focalPoint';
+                    dragFocalSide = 'left';
+                    initialMouseX = pos.x;
+                    initialFocalLength = Math.abs(simState.focalLength);
+                } else if (Math.abs(pos.x - F2x) < 15 && Math.abs(pos.y - center.y) < 15) {
+                    isDragging = true;
+                    dragTarget = 'focalPoint';
+                    dragFocalSide = 'right';
                     initialMouseX = pos.x;
                     initialFocalLength = Math.abs(simState.focalLength);
                 }
@@ -455,21 +495,27 @@
                          simState.objectX = -1;
                     }
                 } else if (dragTarget === 'focalPoint') {
-                    // Update focal length based on movement relative to the center
-                    let newFocalLength = Math.abs(center.x - pos.x);
-                    if (newFocalLength < 50) {
-                        newFocalLength = 50;
+                    let newAbsFocalLength;
+                    if (dragFocalSide === 'left') {
+                        newAbsFocalLength = initialFocalLength - dx;
+                    } else { // 'right'
+                        newAbsFocalLength = initialFocalLength + dx;
+                    }
+                    
+                    if (newAbsFocalLength < 50) {
+                        newAbsFocalLength = 50;
                         showMessage("焦点距離が短すぎます。");
-                    } else if (newFocalLength > 200) {
-                        newFocalLength = 200;
+                    } else if (newAbsFocalLength > 200) {
+                        newAbsFocalLength = 200;
                         showMessage("焦点距離が長すぎます。");
                     }
+                    
                     if (simState.lensType === 'concave') {
-                        simState.focalLength = -newFocalLength;
+                        simState.focalLength = -newAbsFocalLength;
                     } else {
-                        simState.focalLength = newFocalLength;
+                        simState.focalLength = newAbsFocalLength;
                     }
-                    focalLengthInput.value = newFocalLength;
+                    focalLengthInput.value = newAbsFocalLength;
                 }
                 draw();
             }
