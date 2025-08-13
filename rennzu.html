@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>レンズによる像シミュレーション</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+            color: #1a202c;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            flex-direction: column;
+        }
+        canvas {
+            border: 2px solid #e2e8f0;
+            background-color: #ffffff;
+            touch-action: none; /* Prevents default touch gestures on the canvas */
+        }
+        .message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #4a5568;
+            color: white;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
+            z-index: 100;
+        }
+    </style>
+</head>
+<body class="p-4">
+
+    <div class="container mx-auto p-6 bg-white rounded-xl shadow-lg border border-gray-200">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">レンズによる像シミュレーション</h1>
+        
+        <div class="mb-4 flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4">
+            <div class="flex items-center space-x-2">
+                <label for="lensType" class="text-sm font-medium text-gray-700">レンズの種類:</label>
+                <select id="lensType" class="form-select rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                    <option value="convex">凸レンズ</option>
+                    <option value="concave">凹レンズ</option>
+                </select>
+            </div>
+            
+            <div class="flex items-center space-x-2">
+                <label for="focalLength" class="text-sm font-medium text-gray-700">焦点距離 (px):</label>
+                <input type="number" id="focalLength" value="100" min="50" max="200" class="form-input rounded-md border-gray-300 shadow-sm w-24">
+            </div>
+
+            <div class="flex items-center space-x-2">
+                <label for="objectHeight" class="text-sm font-medium text-gray-700">物体の高さ (px):</label>
+                <input type="number" id="objectHeight" value="40" min="10" max="100" class="form-input rounded-md border-gray-300 shadow-sm w-24">
+            </div>
+        </div>
+
+        <div class="w-full flex items-center justify-center mb-6">
+            <canvas id="lensCanvas" class="w-full max-w-2xl aspect-video rounded-xl"></canvas>
+        </div>
+
+        <div class="text-center text-sm text-gray-600 space-y-2">
+            <p><strong>操作方法:</strong></p>
+            <ul class="list-disc list-inside space-y-1 inline-block text-left">
+                <li><span class="font-bold">物体 (電球):</span> マウスまたは指でドラッグして左右に動かすことができます。</li>
+                <li><span class="font-bold">焦点 (Fと表示):</span> マウスまたは指でドラッグして左右に動かすことができます。</li>
+                <li><span class="font-bold">レンズの種類:</span> ドロップダウンメニューで凸レンズと凹レンズを切り替えることができます。</li>
+            </ul>
+        </div>
+    </div>
+
+    <div id="messageBox" class="hidden"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('lensCanvas');
+            const ctx = canvas.getContext('2d');
+            const lensTypeSelect = document.getElementById('lensType');
+            const focalLengthInput = document.getElementById('focalLength');
+            const objectHeightInput = document.getElementById('objectHeight');
+            const messageBox = document.getElementById('messageBox');
+
+            // --- Canvas and Simulation State ---
+            let isDragging = false;
+            let dragTarget = null; // 'object' or 'focalPoint'
+            let initialMouseX;
+            let initialObjectX;
+            let initialFocalX;
+
+            const simState = {
+                lensType: 'convex', // 'convex' or 'concave'
+                focalLength: 100, // f
+                objectX: -200, // object distance from lens center (p)
+                objectHeight: 40 // height of the object
+            };
+
+            const center = {
+                x: canvas.width / 2,
+                y: canvas.height / 2
+            };
+            
+            // --- UI Handlers ---
+            lensTypeSelect.addEventListener('change', (e) => {
+                simState.lensType = e.target.value;
+                if (simState.lensType === 'concave' && simState.focalLength > 0) {
+                    simState.focalLength = -simState.focalLength;
+                } else if (simState.lensType === 'convex' && simState.focalLength < 0) {
+                    simState.focalLength = -simState.focalLength;
+                }
+                draw();
+            });
+
+            focalLengthInput.addEventListener('change', (e) => {
+                let f = parseFloat(e.target.value);
+                if (simState.lensType === 'concave') {
+                    f = -Math.abs(f);
+                } else {
+                    f = Math.abs(f);
+                }
+                simState.focalLength = f;
+                draw();
+            });
+
+            objectHeightInput.addEventListener('change', (e) => {
+                simState.objectHeight = parseFloat(e.target.value);
+                draw();
+            });
+
+            // --- Utility Functions ---
+            function showMessage(msg, duration = 3000) {
+                messageBox.textContent = msg;
+                messageBox.classList.remove('hidden');
+                setTimeout(() => {
+                    messageBox.classList.add('hidden');
+                }, duration);
+            }
+
+            function scaleCanvas() {
+                const container = canvas.parentElement;
+                const containerWidth = container.clientWidth;
+                const containerHeight = container.clientHeight;
+                const ratio = window.devicePixelRatio || 1;
+                
+                // Set canvas resolution for crisp drawing
+                canvas.width = containerWidth * ratio;
+                canvas.height = containerHeight * ratio;
+                ctx.scale(ratio, ratio);
+
+                // Update internal center position
+                center.x = canvas.width / (2 * ratio);
+                center.y = canvas.height / (2 * ratio);
+
+                draw();
+            }
+
+            // --- Main Drawing Function ---
+            function draw() {
+                // Clear canvas and set background
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Optical axis
+                ctx.strokeStyle = '#cbd5e0';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(0, center.y);
+                ctx.lineTo(canvas.width, center.y);
+                ctx.stroke();
+
+                // Focal points
+                const F = simState.focalLength;
+                const f1x = center.x - F;
+                const f2x = center.x + F;
+
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.arc(f1x, center.y, 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(f2x, center.y, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.font = '12px Inter';
+                ctx.fillStyle = '#ef4444';
+                ctx.fillText('F', f1x - 10, center.y - 10);
+                ctx.fillText('F', f2x + 6, center.y - 10);
+
+                // Lens
+                ctx.strokeStyle = '#60a5fa';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(center.x, 0);
+                ctx.lineTo(center.x, canvas.height);
+                ctx.stroke();
+                
+                // Object (Arrow)
+                ctx.strokeStyle = '#1a202c';
+                ctx.lineWidth = 2;
+                ctx.fillStyle = '#1a202c';
+                const objectTipX = center.x + simState.objectX;
+                const objectBaseY = center.y;
+                const objectTipY = center.y - simState.objectHeight;
+                drawArrow(objectTipX, objectBaseY, objectTipX, objectTipY);
+                ctx.fillText('物体', objectTipX - 15, objectTipY - 10);
+
+                // Calculate image position and height
+                // Lens formula: 1/p + 1/q = 1/f
+                // p: object distance, q: image distance, f: focal length
+                const p = simState.objectX;
+                const f = simState.focalLength;
+                let q, imageX, imageHeight;
+                let isReal = false;
+                let isUpright = false;
+
+                if (p === 0) {
+                    q = Infinity;
+                } else {
+                    q = 1 / (1/f - 1/p);
+                }
+                
+                imageX = center.x + q;
+                imageHeight = -simState.objectHeight * (q / p);
+
+                if (q > 0) isReal = true;
+                if (imageHeight > 0) isUpright = true;
+
+                // Handle special cases
+                if (Math.abs(p) < Math.abs(f) && p < 0 && simState.lensType === 'convex') {
+                    // Virtual image for convex lens
+                    isReal = false;
+                    isUpright = true;
+                    // Calculate virtual image position
+                    q = 1 / (1/f - 1/p);
+                    imageX = center.x + q;
+                    imageHeight = -simState.objectHeight * (q / p);
+                } else if (simState.lensType === 'concave') {
+                    // Virtual image for concave lens is always on the same side as the object
+                    isReal = false;
+                    isUpright = true;
+                    q = 1 / (1/f - 1/p);
+                    imageX = center.x + q;
+                    imageHeight = -simState.objectHeight * (q / p);
+                }
+                 
+                // Draw Rays
+                ctx.lineWidth = 1;
+
+                // Ray 1: Parallel to axis, refracts through far focal point (convex) or away from near focal point (concave)
+                ctx.strokeStyle = '#22c55e'; // green
+                let ray1End = { x: center.x, y: objectTipY };
+                ctx.beginPath();
+                ctx.moveTo(objectTipX, objectTipY);
+                ctx.lineTo(ray1End.x, ray1End.y);
+                ctx.stroke();
+                
+                // Draw refracted ray
+                ctx.beginPath();
+                ctx.moveTo(ray1End.x, ray1End.y);
+                if (simState.lensType === 'convex') {
+                    ctx.lineTo(imageX, objectBaseY - imageHeight);
+                    ctx.stroke();
+                } else {
+                    const extendedRay1X = center.x - f1x * 10;
+                    const extendedRay1Y = center.y + f1x * (objectTipY - center.y) / f1x;
+                    ctx.lineTo(extendedRay1X, extendedRay1Y);
+                    ctx.stroke();
+                    ctx.strokeStyle = '#cbd5e0';
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.moveTo(ray1End.x, ray1End.y);
+                    ctx.lineTo(f1x, center.y);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+
+
+                // Ray 2: Through near focal point (convex) or toward far focal point (concave), refracts parallel to axis
+                ctx.strokeStyle = '#3b82f6'; // blue
+                let ray2End = { x: center.x, y: objectTipY };
+                ctx.beginPath();
+                ctx.moveTo(objectTipX, objectTipY);
+                if (simState.lensType === 'convex') {
+                    ctx.lineTo(f1x, center.y);
+                    ctx.lineTo(center.x, objectTipY);
+                } else {
+                    ctx.lineTo(f2x, center.y);
+                    ctx.lineTo(center.x, objectTipY);
+                }
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(ray2End.x, ray2End.y);
+                ctx.lineTo(imageX, objectBaseY - imageHeight);
+                ctx.stroke();
+
+                // Ray 3: Through the center of the lens
+                ctx.strokeStyle = '#ef4444'; // red
+                ctx.beginPath();
+                ctx.moveTo(objectTipX, objectTipY);
+                ctx.lineTo(imageX, objectBaseY - imageHeight);
+                ctx.stroke();
+
+                // Draw image
+                if (p !== 0) {
+                    ctx.strokeStyle = '#9ca3af';
+                    ctx.lineWidth = 2;
+                    ctx.fillStyle = '#9ca3af';
+
+                    if (isReal) {
+                        drawArrow(imageX, objectBaseY, imageX, objectBaseY + imageHeight);
+                    } else {
+                        ctx.setLineDash([5, 5]);
+                        drawArrow(imageX, objectBaseY, imageX, objectBaseY + imageHeight);
+                        ctx.setLineDash([]);
+                    }
+                    ctx.fillText('像', imageX - 5, objectBaseY + imageHeight - 10);
+                }
+            }
+
+            // A helper function to draw an arrow shape
+            function drawArrow(fromX, fromY, toX, toY) {
+                const headlen = 10;
+                const dx = toX - fromX;
+                const dy = toY - fromY;
+                const angle = Math.atan2(dy, dx);
+                ctx.beginPath();
+                ctx.moveTo(fromX, fromY);
+                ctx.lineTo(toX, toY);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(toX, toY);
+                ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
+                ctx.moveTo(toX, toY);
+                ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
+                ctx.stroke();
+            }
+
+            // --- Drag and Drop Logic ---
+            function getCanvasCoordinates(e) {
+                const rect = canvas.getBoundingClientRect();
+                const clientX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
+                const clientY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
+                return {
+                    x: clientX - rect.left,
+                    y: clientY - rect.top
+                };
+            }
+
+            function handleStart(e) {
+                e.preventDefault();
+                const pos = getCanvasCoordinates(e);
+                const objectX = center.x + simState.objectX;
+                const f1x = center.x - simState.focalLength;
+                const f2x = center.x + simState.focalLength;
+
+                // Check if user clicked on the object
+                if (Math.abs(pos.x - objectX) < 10 && Math.abs(pos.y - center.y) < simState.objectHeight) {
+                    isDragging = true;
+                    dragTarget = 'object';
+                    initialMouseX = pos.x;
+                    initialObjectX = simState.objectX;
+                }
+                
+                // Check if user clicked on a focal point
+                if (Math.abs(pos.x - f1x) < 10 && Math.abs(pos.y - center.y) < 10) {
+                    isDragging = true;
+                    dragTarget = 'focalPoint';
+                    initialMouseX = pos.x;
+                    initialFocalX = simState.focalLength;
+                }
+                if (Math.abs(pos.x - f2x) < 10 && Math.abs(pos.y - center.y) < 10) {
+                     isDragging = true;
+                     dragTarget = 'focalPoint';
+                     initialMouseX = pos.x;
+                     initialFocalX = simState.focalLength;
+                 }
+            }
+
+            function handleMove(e) {
+                if (!isDragging) return;
+                e.preventDefault();
+                const pos = getCanvasCoordinates(e);
+                const dx = pos.x - initialMouseX;
+
+                if (dragTarget === 'object') {
+                    simState.objectX = initialObjectX + dx;
+                    // Prevent object from crossing the lens line
+                    if (simState.objectX > -1) {
+                         simState.objectX = -1;
+                         showMessage("物体はレンズを通過できません。");
+                    }
+                } else if (dragTarget === 'focalPoint') {
+                    // Update focal length based on movement
+                    let newFocalLength = initialFocalX + dx;
+                    if (simState.lensType === 'concave') {
+                        // Concave lens has negative focal length, but we drag from its visual position
+                        newFocalLength = -initialFocalX - dx;
+                    }
+
+                    if (Math.abs(newFocalLength) < 50) {
+                         newFocalLength = 50 * Math.sign(newFocalLength);
+                         showMessage("焦点距離が短すぎます。");
+                    }
+                    simState.focalLength = newFocalLength;
+                }
+                draw();
+            }
+
+            function handleEnd(e) {
+                isDragging = false;
+                dragTarget = null;
+            }
+
+            // Add event listeners for both mouse and touch events
+            canvas.addEventListener('mousedown', handleStart);
+            canvas.addEventListener('mousemove', handleMove);
+            canvas.addEventListener('mouseup', handleEnd);
+            canvas.addEventListener('mouseleave', handleEnd);
+
+            canvas.addEventListener('touchstart', handleStart);
+            canvas.addEventListener('touchmove', handleMove);
+            canvas.addEventListener('touchend', handleEnd);
+
+            // Initial setup
+            scaleCanvas();
+            window.addEventListener('resize', scaleCanvas);
+        });
+    </script>
+</body>
+</html>
