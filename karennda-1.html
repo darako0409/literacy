@@ -127,6 +127,14 @@
         </div>
     </div>
 
+    <!-- 完了済TODOリスト -->
+    <div class="max-w-7xl mx-auto bg-white rounded-xl shadow-lg p-6 mb-8">
+        <h2 class="text-2xl font-bold mb-4">完了済みのやることリスト</h2>
+        <div id="completedTodos" class="space-y-4">
+            <!-- 完了済みのTODOリストがここに生成されます -->
+        </div>
+    </div>
+
     <!-- カレンダー用モーダルウィンドウ -->
     <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4 z-50">
         <div class="bg-white rounded-lg p-6 w-full max-w-xl">
@@ -240,12 +248,14 @@
         const saveNotesBtn = document.getElementById('saveNotesBtn');
         const cancelNotesBtn = document.getElementById('cancelNotesBtn');
         const eventColorInput = document.getElementById('eventColor');
+        const completedTodosEl = document.getElementById('completedTodos');
 
         const authAndInit = async () => {
             if (!auth || !db) {
                 showStatusMessage('ローカルモードで実行中。データは保存されません。');
                 renderCalendar(currentYear, currentMonth);
                 renderIncompleteTodos();
+                renderCompletedTodos();
                 return;
             }
             try {
@@ -274,6 +284,7 @@
                 eventData = newEventData;
                 renderCalendar(currentYear, currentMonth);
                 renderIncompleteTodos();
+                renderCompletedTodos();
                 showStatusMessage('カレンダーデータが更新されました');
             }, (error) => {
                 console.error("Firestore Error:", error);
@@ -547,7 +558,6 @@
                     checkbox.type = 'checkbox';
                     checkbox.classList.add('form-checkbox', 'h-5', 'w-5', 'text-blue-600', 'rounded', 'cursor-pointer', 'flex-shrink-0');
                     checkbox.addEventListener('change', async () => {
-                        // 未完了リストからのチェックは、カレンダーの元のtodoを完了状態にする
                         const storedData = eventData[item.date] || { event: '', todos: [] };
                         const todoIndex = storedData.todos.findIndex(todo => todo.text === item.text);
                         if (todoIndex > -1) {
@@ -570,6 +580,66 @@
                 });
             } else {
                 incompleteTodosEl.innerHTML = '<p class="text-gray-500 text-center">未完了のやることリストはありません。</p>';
+            }
+        };
+
+        const renderCompletedTodos = () => {
+            completedTodosEl.innerHTML = '';
+            const completedList = [];
+            for (const dateKey in eventData) {
+                const data = eventData[dateKey];
+                if (data && data.todos) {
+                    data.todos.filter(todo => todo.completed).forEach(todo => {
+                        completedList.push({
+                            date: dateKey,
+                            text: todo.text
+                        });
+                    });
+                }
+            }
+
+            completedList.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            if (completedList.length > 0) {
+                completedList.forEach(item => {
+                    const todoDiv = document.createElement('div');
+                    todoDiv.classList.add('bg-gray-200', 'rounded-md', 'p-3', 'shadow-sm', 'text-gray-600', 'flex', 'items-center', 'space-x-2', 'incomplete-todo-item');
+                    
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.checked = true;
+                    checkbox.classList.add('form-checkbox', 'h-5', 'w-5', 'text-green-600', 'rounded', 'cursor-pointer', 'flex-shrink-0');
+                    checkbox.addEventListener('change', async () => {
+                        const storedData = eventData[item.date] || { event: '', todos: [] };
+                        const todoIndex = storedData.todos.findIndex(todo => todo.text === item.text);
+                        if (todoIndex > -1) {
+                            storedData.todos[todoIndex].completed = false;
+                            if (currentUserId) {
+                                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                                const docRef = doc(db, `/artifacts/${appId}/public/data/calendar_events`, item.date);
+                                await setDoc(docRef, storedData);
+                                showStatusMessage(`TODO:「${item.text}」が未完了に戻されました。`);
+                            } else {
+                                renderCompletedTodos();
+                            }
+                        }
+                    });
+
+                    const dateSpan = document.createElement('span');
+                    dateSpan.classList.add('font-bold', 'flex-shrink-0');
+                    dateSpan.textContent = `${item.date}:`;
+                    
+                    const textSpan = document.createElement('span');
+                    textSpan.classList.add('flex-1', 'line-through');
+                    textSpan.textContent = item.text;
+
+                    todoDiv.appendChild(checkbox);
+                    todoDiv.appendChild(dateSpan);
+                    todoDiv.appendChild(textSpan);
+                    completedTodosEl.appendChild(todoDiv);
+                });
+            } else {
+                completedTodosEl.innerHTML = '<p class="text-gray-500 text-center">完了済みのやることリストはありません。</p>';
             }
         };
 
