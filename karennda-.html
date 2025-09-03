@@ -122,16 +122,20 @@
 
         // Firebaseの設定と初期化
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
         let app = null;
         let db = null;
         let auth = null;
-        try {
-            app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
-        } catch (e) {
-            console.error("Firebase initialization failed:", e);
+        
+        // Firebaseの初期化を`firebaseConfig`が存在する場合にのみ実行
+        if (firebaseConfig) {
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+            } catch (e) {
+                console.error("Firebase initialization failed:", e);
+            }
         }
 
         // ローディングメッセージを表示
@@ -153,7 +157,9 @@
         // 認証
         const authAndInit = async () => {
             if (!auth || !db) {
-                showStatusMessage('Firebaseが初期化されていません。');
+                showStatusMessage('ローカルモードで実行中。データは保存されません。');
+                renderCalendar(currentYear, currentMonth); // Firebaseなしでカレンダーをレンダリング
+                renderIncompleteTodos();
                 return;
             }
             try {
@@ -477,5 +483,4 @@
         authAndInit();
     </script>
 </body>
-</html>
 </html>
