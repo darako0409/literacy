@@ -122,14 +122,22 @@
 
         // Firebaseの設定と初期化
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-        
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        let app = null;
+        let db = null;
+        let auth = null;
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+        } catch (e) {
+            console.error("Firebase initialization failed:", e);
+        }
+
         // ローディングメッセージを表示
         const showStatusMessage = (message) => {
             const statusEl = document.getElementById('statusMessage');
+            if (!statusEl) return;
             statusEl.textContent = message;
             statusEl.classList.remove('opacity-0');
             statusEl.classList.add('opacity-100');
@@ -144,8 +152,12 @@
         
         // 認証
         const authAndInit = async () => {
+            if (!auth || !db) {
+                showStatusMessage('Firebaseが初期化されていません。');
+                return;
+            }
             try {
-                if (typeof __initial_auth_token !== 'undefined') {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
                     await signInAnonymously(auth);
@@ -160,7 +172,7 @@
         };
 
         const initFirestoreListener = () => {
-            if (!currentUserId) return;
+            if (!currentUserId || !db) return;
             const userEventsCollectionPath = `/artifacts/${appId}/users/${currentUserId}/calendar_events`;
             const userEventsCollectionRef = collection(db, userEventsCollectionPath);
 
@@ -326,8 +338,12 @@
                 checkbox.addEventListener('change', async () => {
                     const storedData = eventData[selectedDate] || { event: '', todos: [] };
                     storedData.todos[index].completed = checkbox.checked;
-                    await setDoc(doc(db, `/artifacts/${appId}/users/${currentUserId}/calendar_events`, selectedDate), storedData);
-                    showStatusMessage(`TODO:「${todo.text}」の状態が変更されました。`);
+                    if (currentUserId) {
+                        await setDoc(doc(db, `/artifacts/${appId}/users/${currentUserId}/calendar_events`, selectedDate), storedData);
+                        showStatusMessage(`TODO:「${todo.text}」の状態が変更されました。`);
+                    } else {
+                        showStatusMessage('ローカルモードでは変更が保存されません。');
+                    }
                 });
 
                 const textSpan = document.createElement('span');
@@ -343,8 +359,12 @@
                 deleteBtn.addEventListener('click', async () => {
                     const storedData = eventData[selectedDate] || { event: '', todos: [] };
                     storedData.todos.splice(index, 1);
-                    await setDoc(doc(db, `/artifacts/${appId}/users/${currentUserId}/calendar_events`, selectedData), storedData);
-                    showStatusMessage(`TODO:「${todo.text}」が削除されました。`);
+                    if (currentUserId) {
+                        await setDoc(doc(db, `/artifacts/${appId}/users/${currentUserId}/calendar_events`, selectedData), storedData);
+                        showStatusMessage(`TODO:「${todo.text}」が削除されました。`);
+                    } else {
+                        showStatusMessage('ローカルモードでは変更が保存されません。');
+                    }
                 });
 
                 todoItem.appendChild(checkbox);
@@ -387,7 +407,10 @@
         };
 
         const saveData = async () => {
-            if (!selectedDate || !currentUserId) return;
+            if (!selectedDate || !currentUserId) {
+                showStatusMessage('ローカルモードでは変更が保存されません。');
+                return;
+            }
             const docRef = doc(db, `/artifacts/${appId}/users/${currentUserId}/calendar_events`, selectedDate);
             const storedData = eventData[selectedDate] || { event: '', todos: [] };
             storedData.event = eventInput.value;
@@ -397,7 +420,10 @@
 
         const addTodo = async () => {
             const newTodoText = newTodoInput.value.trim();
-            if (newTodoText === '' || !selectedDate || !currentUserId) return;
+            if (newTodoText === '' || !selectedDate || !currentUserId) {
+                showStatusMessage('ローカルモードでは変更が保存されません。');
+                return;
+            }
             
             const storedData = eventData[selectedDate] || { event: '', todos: [] };
             const todoExists = storedData.todos.some(todo => todo.text.trim() === newTodoText);
@@ -451,4 +477,5 @@
         authAndInit();
     </script>
 </body>
+</html>
 </html>
