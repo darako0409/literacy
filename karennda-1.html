@@ -82,9 +82,12 @@
         </div>
     </div>
     
+    <!-- 目標と課題点 -->
     <div class="max-w-7xl mx-auto bg-white rounded-xl shadow-lg p-6 mb-8">
-        <h2 class="text-xl font-semibold text-gray-600 mb-2">ログイン中のユーザーID:</h2>
-        <span id="userIdDisplay" class="font-mono bg-gray-200 text-gray-800 p-2 rounded-md block break-words"></span>
+        <h2 class="text-2xl font-bold mb-4">目標</h2>
+        <textarea id="goalInput" class="w-full h-32 p-2 mb-4 border rounded resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="目標を入力..."></textarea>
+        <h2 class="text-2xl font-bold mb-4">課題点</h2>
+        <textarea id="issueInput" class="w-full h-32 p-2 mb-4 border rounded resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="課題点を入力..."></textarea>
     </div>
 
     <!-- 未完了TODOリスト -->
@@ -120,10 +123,15 @@
     
     <div id="statusMessage" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-sm py-2 px-4 rounded-full shadow-lg transition-opacity duration-300 opacity-0"></div>
 
+    <div class="max-w-7xl mx-auto bg-white rounded-xl shadow-lg p-6 mt-8">
+        <h2 class="text-xl font-semibold text-gray-600 mb-2">ログイン中のユーザーID:</h2>
+        <span id="userIdDisplay" class="font-mono bg-gray-200 text-gray-800 p-2 rounded-md block break-words"></span>
+    </div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyD1as9zQr8P6k8Up9Y4FnO3DYroyvgMnAM",
@@ -165,8 +173,11 @@
 
         let currentUserId = null;
         let eventData = {};
+        let generalNotesData = {};
 
         const userIdDisplayEl = document.getElementById('userIdDisplay');
+        const goalInputEl = document.getElementById('goalInput');
+        const issueInputEl = document.getElementById('issueInput');
         
         const authAndInit = async () => {
             if (!auth || !db) {
@@ -180,21 +191,21 @@
                 currentUserId = auth.currentUser.uid;
                 userIdDisplayEl.textContent = currentUserId;
                 showStatusMessage(`ログインしました。データロード中です...`);
-                initFirestoreListener();
+                initFirestoreListeners();
             } catch (error) {
                 console.error("Firebase Authentication Error:", error);
                 showStatusMessage('ログインに失敗しました。');
             }
         };
 
-        const initFirestoreListener = () => {
+        const initFirestoreListeners = () => {
             if (!currentUserId || !db) return;
-            // 共有カレンダーのパスに変更
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-            const sharedCollectionPath = `/artifacts/${appId}/public/data/calendar_events`;
-            const sharedCollectionRef = collection(db, sharedCollectionPath);
 
-            onSnapshot(sharedCollectionRef, (snapshot) => {
+            // カレンダーイベントのリスナー
+            const sharedCalendarCollectionPath = `/artifacts/${appId}/public/data/calendar_events`;
+            const sharedCalendarCollectionRef = collection(db, sharedCalendarCollectionPath);
+            onSnapshot(sharedCalendarCollectionRef, (snapshot) => {
                 const newEventData = {};
                 snapshot.forEach((doc) => {
                     newEventData[doc.id] = doc.data();
@@ -202,7 +213,26 @@
                 eventData = newEventData;
                 renderCalendar(currentYear, currentMonth);
                 renderIncompleteTodos();
-                showStatusMessage('データが更新されました');
+                showStatusMessage('カレンダーデータが更新されました');
+            }, (error) => {
+                console.error("Firestore Error:", error);
+                showStatusMessage('データのロード中にエラーが発生しました。');
+            });
+
+            // 目標と課題点のリスナー
+            const sharedNotesDocPath = `/artifacts/${appId}/public/data/general_notes`;
+            const sharedNotesDocRef = doc(db, sharedNotesDocPath, 'notes');
+            onSnapshot(sharedNotesDocRef, (doc) => {
+                if (doc.exists()) {
+                    generalNotesData = doc.data();
+                    goalInputEl.value = generalNotesData.goal || '';
+                    issueInputEl.value = generalNotesData.issue || '';
+                } else {
+                    generalNotesData = {};
+                    goalInputEl.value = '';
+                    issueInputEl.value = '';
+                }
+                showStatusMessage('目標と課題点が更新されました');
             }, (error) => {
                 console.error("Firestore Error:", error);
                 showStatusMessage('データのロード中にエラーが発生しました。');
@@ -464,7 +494,32 @@
             newTodoInput.value = '';
             showStatusMessage('やることリストに追加されました。');
         };
+        
+        const saveGeneralNotes = async (field, value) => {
+            if (!currentUserId) {
+                showStatusMessage('ローカルモードでは変更が保存されません。');
+                return;
+            }
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            const notesDocRef = doc(db, `/artifacts/${appId}/public/data/general_notes`, 'notes');
+            try {
+                await updateDoc(notesDocRef, {
+                    [field]: value
+                });
+                showStatusMessage('目標と課題点が保存されました。');
+            } catch (e) {
+                console.error("Error updating document: ", e);
+                // ドキュメントが存在しない場合は新規作成
+                await setDoc(notesDocRef, {
+                    [field]: value
+                });
+                showStatusMessage('目標と課題点が新規保存されました。');
+            }
+        };
 
+        goalInputEl.addEventListener('input', (e) => saveGeneralNotes('goal', e.target.value));
+        issueInputEl.addEventListener('input', (e) => saveGeneralNotes('issue', e.target.value));
+        
         prevMonthBtn.addEventListener('click', () => {
             currentMonth--;
             if (currentMonth < 0) {
