@@ -548,14 +548,12 @@
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
             const notesDocRef = doc(db, `/artifacts/${appId}/public/data/general_notes`, 'notes');
             const updatedData = { ...generalNotesData, [currentEditingField]: notesInputEl.value };
-            try {
-                await setDoc(notesDocRef, updatedData);
-                showStatusMessage('内容が保存されました。');
-                closeNotesModal();
-            } catch (e) {
-                console.error("Error saving document: ", e);
-                showStatusMessage('保存中にエラーが発生しました。');
-            }
+            
+            // setDocを使用してドキュメントの存在を気にせずに保存
+            await setDoc(notesDocRef, updatedData);
+            
+            showStatusMessage('内容が保存されました。');
+            closeNotesModal();
         };
         
         // イベントリスナー
