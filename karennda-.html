@@ -224,6 +224,7 @@
                         cell.appendChild(eventDiv);
                     }
 
+                    // イベントリスナーを再設定
                     cell.addEventListener('click', () => {
                         selectedDate = dateKey;
                         openModal(dateKey);
@@ -276,7 +277,7 @@
                         storedData.todos[index].completed = checkbox.checked;
                         setStoredData(selectedDate, storedData);
                         renderTodos(storedData.todos);
-                        renderCalendar(currentYear, currentMonth); // カレンダーを再描画
+                        renderCalendar(currentYear, currentMonth);
                     });
 
                     const textSpan = document.createElement('span');
@@ -291,7 +292,7 @@
                         storedData.todos.splice(index, 1);
                         setStoredData(selectedDate, storedData);
                         renderTodos(storedData.todos);
-                        renderCalendar(currentYear, currentMonth); // カレンダーを再描画
+                        renderCalendar(currentYear, currentMonth);
                     });
 
                     todoItem.appendChild(checkbox);
@@ -324,6 +325,9 @@
                         console.error('Failed to parse localStorage data for key:', key, e);
                     }
                 }
+                
+                // 日付でソート
+                incompleteList.sort((a, b) => new Date(a.date) - new Date(b.date));
 
                 if (incompleteList.length > 0) {
                     incompleteList.forEach(item => {
@@ -348,11 +352,22 @@
             const addTodo = () => {
                 const newTodoText = newTodoInput.value.trim();
                 if (newTodoText === '') return;
+                
                 const storedData = getStoredData(selectedDate);
+                const todoExists = storedData.todos.some(todo => todo.text.trim() === newTodoText);
+                
+                if (todoExists) {
+                    // 同じ内容がすでに存在する場合は追加しない
+                    console.log('Duplicate todo item ignored.');
+                    newTodoInput.value = '';
+                    return;
+                }
+
                 storedData.todos.push({ text: newTodoText, completed: false });
                 setStoredData(selectedDate, storedData);
                 renderTodos(storedData.todos);
                 newTodoInput.value = '';
+                renderIncompleteTodos(); // リストを更新
             };
 
             // イベントリスナー
