@@ -403,7 +403,7 @@
                     storedData.todos.filter(todo => !todo.completed).forEach(todo => {
                         const todoDiv = document.createElement('div');
                         todoDiv.classList.add('event-item', 'mt-1', 'todo-item');
-                        todoDiv.textContent = todo.text;
+                        todoDiv.textContent = `・ ${todo.text}`;
                         cell.appendChild(todoDiv);
                     });
                 }
