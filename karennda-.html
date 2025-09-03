@@ -122,21 +122,14 @@
 
         // Firebaseの設定と初期化
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = {
-            apiKey: "AIzaSyD1as9zQr8P6k8Up9Y4FnO3DYroyvgMnAM",
-            authDomain: "karennda-e8465.firebaseapp.com",
-            projectId: "karennda-e8465",
-            storageBucket: "karennda-e8465.firebasestorage.app",
-            messagingSenderId: "1023443880200",
-            appId: "1:1023443880200:web:ee995edd613fbc626544bd",
-            measurementId: "G-E9Y0L9P95V"
-        };
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        
         let app = null;
         let db = null;
         let auth = null;
         
         // Firebaseの初期化を`firebaseConfig`が存在する場合にのみ実行
-        if (firebaseConfig.apiKey && firebaseConfig.projectId) {
+        if (Object.keys(firebaseConfig).length > 0) {
             try {
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
@@ -144,6 +137,8 @@
             } catch (e) {
                 console.error("Firebase initialization failed:", e);
             }
+        } else {
+            console.error("Firebase config is not available.");
         }
 
         // ローディングメッセージを表示
@@ -178,7 +173,7 @@
                     await signInAnonymously(auth);
                 }
                 currentUserId = auth.currentUser.uid;
-                showStatusMessage('ログインしました。データをロード中です...');
+                showStatusMessage(`ログインしました。ユーザーID: ${currentUserId} データロード中です...`);
                 initFirestoreListener();
             } catch (error) {
                 console.error("Firebase Authentication Error:", error);
