@@ -84,10 +84,17 @@
     
     <!-- 目標と課題点 -->
     <div class="max-w-7xl mx-auto bg-white rounded-xl shadow-lg p-6 mb-8">
-        <h2 class="text-2xl font-bold mb-4">目標</h2>
-        <textarea id="goalInput" class="w-full h-32 p-2 mb-4 border rounded resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="目標を入力..."></textarea>
-        <h2 class="text-2xl font-bold mb-4">課題点</h2>
-        <textarea id="issueInput" class="w-full h-32 p-2 mb-4 border rounded resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="課題点を入力..."></textarea>
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-2xl font-bold">目標</h2>
+            <button id="editGoalBtn" class="bg-blue-500 hover:bg-blue-600 text-white py-1 px-4 rounded-full transition-colors">編集</button>
+        </div>
+        <div id="goalDisplay" class="p-4 border border-gray-200 rounded-lg bg-gray-50 whitespace-pre-wrap min-h-[10rem] text-gray-800"></div>
+
+        <div class="flex justify-between items-center mt-6 mb-4">
+            <h2 class="text-2xl font-bold">課題点</h2>
+            <button id="editIssueBtn" class="bg-blue-500 hover:bg-blue-600 text-white py-1 px-4 rounded-full transition-colors">編集</button>
+        </div>
+        <div id="issueDisplay" class="p-4 border border-gray-200 rounded-lg bg-gray-50 whitespace-pre-wrap min-h-[10rem] text-gray-800"></div>
     </div>
 
     <!-- 未完了TODOリスト -->
@@ -98,7 +105,7 @@
         </div>
     </div>
 
-    <!-- モーダルウィンドウ -->
+    <!-- カレンダー用モーダルウィンドウ -->
     <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4">
         <div class="bg-white rounded-lg p-6 w-full max-w-xl">
             <div class="flex justify-between items-center mb-4">
@@ -117,6 +124,21 @@
             </div>
             <div class="flex justify-end mt-4">
                 <button id="saveBtn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition-colors">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 目標・課題点用モーダルウィンドウ -->
+    <div id="notesModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-lg p-6 w-full max-w-xl">
+            <div class="flex justify-between items-center mb-4">
+                <h2 id="notesModalTitle" class="text-2xl font-bold"></h2>
+                <button id="closeNotesModalBtn" class="text-gray-500 hover:text-gray-700 text-2xl font-bold">&times;</button>
+            </div>
+            <textarea id="notesInput" class="w-full h-48 p-2 mb-4 border rounded resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+            <div class="flex justify-end mt-4 space-x-2">
+                <button id="cancelNotesBtn" class="bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-2 px-4 rounded transition-colors">キャンセル</button>
+                <button id="saveNotesBtn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition-colors">保存</button>
             </div>
         </div>
     </div>
@@ -174,10 +196,19 @@
         let currentUserId = null;
         let eventData = {};
         let generalNotesData = {};
+        let currentEditingField = null;
 
         const userIdDisplayEl = document.getElementById('userIdDisplay');
-        const goalInputEl = document.getElementById('goalInput');
-        const issueInputEl = document.getElementById('issueInput');
+        const goalDisplayEl = document.getElementById('goalDisplay');
+        const issueDisplayEl = document.getElementById('issueDisplay');
+        const editGoalBtn = document.getElementById('editGoalBtn');
+        const editIssueBtn = document.getElementById('editIssueBtn');
+        const notesModalEl = document.getElementById('notesModal');
+        const notesModalTitleEl = document.getElementById('notesModalTitle');
+        const notesInputEl = document.getElementById('notesInput');
+        const closeNotesModalBtn = document.getElementById('closeNotesModalBtn');
+        const saveNotesBtn = document.getElementById('saveNotesBtn');
+        const cancelNotesBtn = document.getElementById('cancelNotesBtn');
         
         const authAndInit = async () => {
             if (!auth || !db) {
@@ -225,12 +256,12 @@
             onSnapshot(sharedNotesDocRef, (doc) => {
                 if (doc.exists()) {
                     generalNotesData = doc.data();
-                    goalInputEl.value = generalNotesData.goal || '';
-                    issueInputEl.value = generalNotesData.issue || '';
+                    goalDisplayEl.textContent = generalNotesData.goal || '目標を入力してください...';
+                    issueDisplayEl.textContent = generalNotesData.issue || '課題点を入力してください...';
                 } else {
                     generalNotesData = {};
-                    goalInputEl.value = '';
-                    issueInputEl.value = '';
+                    goalDisplayEl.textContent = '目標を入力してください...';
+                    issueDisplayEl.textContent = '課題点を入力してください...';
                 }
                 showStatusMessage('目標と課題点が更新されました');
             }, (error) => {
@@ -366,6 +397,20 @@
             modalEl.classList.remove('flex');
             selectedDate = null;
         };
+        
+        const openNotesModal = (field) => {
+            currentEditingField = field;
+            notesModalTitleEl.textContent = field === 'goal' ? '目標の編集' : '課題点の編集';
+            notesInputEl.value = generalNotesData[field] || '';
+            notesModalEl.classList.remove('hidden');
+            notesModalEl.classList.add('flex');
+        };
+
+        const closeNotesModal = () => {
+            notesModalEl.classList.add('hidden');
+            notesModalEl.classList.remove('flex');
+            currentEditingField = null;
+        };
 
         const renderTodos = (todos) => {
             todoListEl.innerHTML = '';
@@ -495,30 +540,30 @@
             showStatusMessage('やることリストに追加されました。');
         };
         
-        const saveGeneralNotes = async (field, value) => {
-            if (!currentUserId) {
+        const saveNotes = async () => {
+            if (!currentUserId || !currentEditingField) {
                 showStatusMessage('ローカルモードでは変更が保存されません。');
                 return;
             }
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
             const notesDocRef = doc(db, `/artifacts/${appId}/public/data/general_notes`, 'notes');
+            const updatedData = { ...generalNotesData, [currentEditingField]: notesInputEl.value };
             try {
-                await updateDoc(notesDocRef, {
-                    [field]: value
-                });
-                showStatusMessage('目標と課題点が保存されました。');
+                await setDoc(notesDocRef, updatedData);
+                showStatusMessage('内容が保存されました。');
+                closeNotesModal();
             } catch (e) {
-                console.error("Error updating document: ", e);
-                // ドキュメントが存在しない場合は新規作成
-                await setDoc(notesDocRef, {
-                    [field]: value
-                });
-                showStatusMessage('目標と課題点が新規保存されました。');
+                console.error("Error saving document: ", e);
+                showStatusMessage('保存中にエラーが発生しました。');
             }
         };
-
-        goalInputEl.addEventListener('input', (e) => saveGeneralNotes('goal', e.target.value));
-        issueInputEl.addEventListener('input', (e) => saveGeneralNotes('issue', e.target.value));
+        
+        // イベントリスナー
+        editGoalBtn.addEventListener('click', () => openNotesModal('goal'));
+        editIssueBtn.addEventListener('click', () => openNotesModal('issue'));
+        closeNotesModalBtn.addEventListener('click', closeNotesModal);
+        cancelNotesBtn.addEventListener('click', closeNotesModal);
+        saveNotesBtn.addEventListener('click', saveNotes);
         
         prevMonthBtn.addEventListener('click', () => {
             currentMonth--;
