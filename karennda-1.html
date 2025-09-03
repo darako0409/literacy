@@ -22,6 +22,7 @@
             transition: background-color 0.2s;
             position: relative;
             background-color: white;
+            overflow: hidden;
         }
         .day-cell.prev-month, .day-cell.next-month {
             color: #d1d5db;
@@ -42,16 +43,37 @@
         .saturday {
             color: #3b82f6;
         }
-        .event {
+        .event-item {
             font-size: 0.875rem;
             color: #4b5563;
-            background-color: #e5e7eb;
             padding: 2px 4px;
             border-radius: 4px;
             margin-top: 4px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+        }
+        .event-item.event {
+            background-color: #e5e7eb;
+        }
+        .todo-item {
+            font-size: 0.875rem;
+            color: #4b5563;
+            background-color: #d1fae5; /* 緑色 */
+            padding: 2px 4px;
+            border-radius: 4px;
+            margin-top: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .todo-item.completed {
+            text-decoration: line-through;
+            background-color: #f3f4f6;
+            color: #9ca3af;
+        }
+        .incomplete-todo-item {
+            position: relative;
         }
     </style>
 </head>
@@ -106,14 +128,22 @@
     </div>
 
     <!-- カレンダー用モーダルウィンドウ -->
-    <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4">
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4 z-50">
         <div class="bg-white rounded-lg p-6 w-full max-w-xl">
             <div class="flex justify-between items-center mb-4">
                 <h2 id="modalDate" class="text-2xl font-bold"></h2>
                 <button id="closeModalBtn" class="text-gray-500 hover:text-gray-700 text-2xl font-bold">&times;</button>
             </div>
+            
             <h3 class="text-lg font-semibold mb-2">予定</h3>
-            <textarea id="eventInput" class="w-full h-24 p-2 mb-4 border rounded resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="予定を入力..."></textarea>
+            <div class="flex items-center mb-4">
+                <textarea id="eventInput" class="flex-1 h-24 p-2 border rounded resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="予定を入力..."></textarea>
+                <div class="ml-2 flex flex-col items-center">
+                    <label for="eventColor" class="text-sm font-semibold text-gray-700">色</label>
+                    <input type="color" id="eventColor" class="w-10 h-10 p-1 border rounded-md cursor-pointer">
+                </div>
+            </div>
+
             <h3 class="text-lg font-semibold mb-2">やることリスト</h3>
             <div id="todoList" class="space-y-2">
                 <!-- TODOリストの項目がここに生成されます -->
@@ -129,7 +159,7 @@
     </div>
 
     <!-- 目標・課題点用モーダルウィンドウ -->
-    <div id="notesModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4">
+    <div id="notesModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4 z-50">
         <div class="bg-white rounded-lg p-6 w-full max-w-xl">
             <div class="flex justify-between items-center mb-4">
                 <h2 id="notesModalTitle" class="text-2xl font-bold"></h2>
@@ -209,7 +239,8 @@
         const closeNotesModalBtn = document.getElementById('closeNotesModalBtn');
         const saveNotesBtn = document.getElementById('saveNotesBtn');
         const cancelNotesBtn = document.getElementById('cancelNotesBtn');
-        
+        const eventColorInput = document.getElementById('eventColor');
+
         const authAndInit = async () => {
             if (!auth || !db) {
                 showStatusMessage('ローカルモードで実行中。データは保存されません。');
@@ -233,7 +264,6 @@
             if (!currentUserId || !db) return;
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-            // カレンダーイベントのリスナー
             const sharedCalendarCollectionPath = `/artifacts/${appId}/public/data/calendar_events`;
             const sharedCalendarCollectionRef = collection(db, sharedCalendarCollectionPath);
             onSnapshot(sharedCalendarCollectionRef, (snapshot) => {
@@ -250,7 +280,6 @@
                 showStatusMessage('データのロード中にエラーが発生しました。');
             });
 
-            // 目標と課題点のリスナー
             const sharedNotesDocPath = `/artifacts/${appId}/public/data/general_notes`;
             const sharedNotesDocRef = doc(db, sharedNotesDocPath, 'notes');
             onSnapshot(sharedNotesDocRef, (doc) => {
@@ -354,16 +383,29 @@
 
                 if (holidays[dateKey]) {
                     const holidayLabel = document.createElement('div');
-                    holidayLabel.classList.add('event', 'bg-red-200', 'text-red-800');
+                    holidayLabel.classList.add('event-item', 'bg-red-200', 'text-red-800');
                     holidayLabel.textContent = holidays[dateKey];
                     cell.appendChild(holidayLabel);
                 }
 
                 if (storedData.event) {
                     const eventDiv = document.createElement('div');
-                    eventDiv.classList.add('event', 'mt-1');
+                    eventDiv.classList.add('event-item', 'mt-1', 'event');
+                    if (storedData.color) {
+                         eventDiv.style.backgroundColor = storedData.color + '40'; // 40は透明度
+                         eventDiv.style.borderColor = storedData.color;
+                    }
                     eventDiv.textContent = storedData.event;
                     cell.appendChild(eventDiv);
+                }
+
+                if (storedData.todos && storedData.todos.length > 0) {
+                    storedData.todos.filter(todo => !todo.completed).forEach(todo => {
+                        const todoDiv = document.createElement('div');
+                        todoDiv.classList.add('event-item', 'mt-1', 'todo-item');
+                        todoDiv.textContent = todo.text;
+                        cell.appendChild(todoDiv);
+                    });
                 }
                 
                 cell.addEventListener('click', () => {
@@ -384,9 +426,10 @@
         };
 
         const openModal = (dateKey) => {
-            const storedData = eventData[dateKey] || { event: '', todos: [] };
+            const storedData = eventData[dateKey] || { event: '', todos: [], color: '#e5e7eb' };
             modalDateEl.textContent = `${dateKey.replace(/-/g, '/')} の予定`;
             eventInput.value = storedData.event;
+            eventColorInput.value = storedData.color || '#e5e7eb';
             renderTodos(storedData.todos);
             modalEl.classList.remove('hidden');
             modalEl.classList.add('flex');
@@ -476,15 +519,12 @@
             for (const dateKey in eventData) {
                 const data = eventData[dateKey];
                 if (data && data.todos) {
-                    const incomplete = data.todos.filter(todo => !todo.completed);
-                    if (incomplete.length > 0) {
-                        incomplete.forEach(todo => {
-                            incompleteList.push({
-                                date: dateKey,
-                                text: todo.text
-                            });
+                    data.todos.filter(todo => !todo.completed).forEach(todo => {
+                        incompleteList.push({
+                            date: dateKey,
+                            text: todo.text
                         });
-                    }
+                    });
                 }
             }
             
@@ -493,8 +533,39 @@
             if (incompleteList.length > 0) {
                 incompleteList.forEach(item => {
                     const todoDiv = document.createElement('div');
-                    todoDiv.classList.add('bg-blue-100', 'rounded-md', 'p-3', 'shadow-sm', 'text-gray-800');
-                    todoDiv.innerHTML = `<span class="font-bold">${item.date}:</span> ${item.text}`;
+                    todoDiv.classList.add('bg-blue-100', 'rounded-md', 'p-3', 'shadow-sm', 'text-gray-800', 'flex', 'items-center', 'space-x-2', 'incomplete-todo-item');
+                    
+                    const dateSpan = document.createElement('span');
+                    dateSpan.classList.add('font-bold', 'flex-shrink-0');
+                    dateSpan.textContent = `${item.date}:`;
+                    
+                    const textSpan = document.createElement('span');
+                    textSpan.classList.add('flex-1');
+                    textSpan.textContent = item.text;
+
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.classList.add('form-checkbox', 'h-5', 'w-5', 'text-blue-600', 'rounded', 'cursor-pointer', 'flex-shrink-0');
+                    checkbox.addEventListener('change', async () => {
+                        // 未完了リストからのチェックは、カレンダーの元のtodoを完了状態にする
+                        const storedData = eventData[item.date] || { event: '', todos: [] };
+                        const todoIndex = storedData.todos.findIndex(todo => todo.text === item.text);
+                        if (todoIndex > -1) {
+                            storedData.todos[todoIndex].completed = true;
+                            if (currentUserId) {
+                                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                                const docRef = doc(db, `/artifacts/${appId}/public/data/calendar_events`, item.date);
+                                await setDoc(docRef, storedData);
+                                showStatusMessage(`TODO:「${item.text}」が完了しました。`);
+                            } else {
+                                renderIncompleteTodos();
+                            }
+                        }
+                    });
+
+                    todoDiv.appendChild(checkbox);
+                    todoDiv.appendChild(dateSpan);
+                    todoDiv.appendChild(textSpan);
                     incompleteTodosEl.appendChild(todoDiv);
                 });
             } else {
@@ -511,6 +582,7 @@
             const docRef = doc(db, `/artifacts/${appId}/public/data/calendar_events`, selectedDate);
             const storedData = eventData[selectedDate] || { event: '', todos: [] };
             storedData.event = eventInput.value;
+            storedData.color = eventColorInput.value;
             await setDoc(docRef, storedData);
             showStatusMessage('予定が保存されました。');
         };
@@ -549,7 +621,6 @@
             const notesDocRef = doc(db, `/artifacts/${appId}/public/data/general_notes`, 'notes');
             const updatedData = { ...generalNotesData, [currentEditingField]: notesInputEl.value };
             
-            // setDocを使用してドキュメントの存在を気にせずに保存
             await setDoc(notesDocRef, updatedData);
             
             showStatusMessage('内容が保存されました。');
