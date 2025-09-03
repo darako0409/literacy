@@ -136,10 +136,10 @@
         let auth = null;
         
         // Firebaseの初期化を`firebaseConfig`が存在する場合にのみ実行
-        if (firebaseConfig) {
+        if (firebaseConfig.apiKey && firebaseConfig.projectId) {
             try {
-                app = initiaorlizeApp(firebaseConfig);
-                db = getFireste(app);
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
                 auth = getAuth(app);
             } catch (e) {
                 console.error("Firebase initialization failed:", e);
@@ -164,6 +164,7 @@
         
         // 認証
         const authAndInit = async () => {
+            // Firebaseが初期化されているか確認
             if (!auth || !db) {
                 showStatusMessage('ローカルモードで実行中。データは保存されません。');
                 renderCalendar(currentYear, currentMonth); // Firebaseなしでカレンダーをレンダリング
@@ -353,7 +354,8 @@
                     const storedData = eventData[selectedDate] || { event: '', todos: [] };
                     storedData.todos[index].completed = checkbox.checked;
                     if (currentUserId) {
-                        await setDoc(doc(db, `/artifacts/${appId}/users/${currentUserId}/calendar_events`, selectedDate), storedData);
+                        const docRef = doc(db, `/artifacts/${appId}/users/${currentUserId}/calendar_events`, selectedDate);
+                        await setDoc(docRef, storedData);
                         showStatusMessage(`TODO:「${todo.text}」の状態が変更されました。`);
                     } else {
                         renderTodos(storedData.todos);
@@ -376,7 +378,8 @@
                     const storedData = eventData[selectedDate] || { event: '', todos: [] };
                     storedData.todos.splice(index, 1);
                     if (currentUserId) {
-                        await setDoc(doc(db, `/artifacts/${appId}/users/${currentUserId}/calendar_events`, selectedDate), storedData);
+                        const docRef = doc(db, `/artifacts/${appId}/users/${currentUserId}/calendar_events`, selectedDate);
+                        await setDoc(docRef, storedData);
                         showStatusMessage(`TODO:「${todo.text}」が削除されました。`);
                     } else {
                         renderTodos(storedData.todos);
