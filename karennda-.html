@@ -117,11 +117,10 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Firebaseの設定と初期化
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // ここにあなたのFirebase設定を貼り付けてください
         const firebaseConfig = {
             apiKey: "AIzaSyD1as9zQr8P6k8Up9Y4FnO3DYroyvgMnAM",
             authDomain: "karennda-e8465.firebaseapp.com",
@@ -146,7 +145,7 @@
                 console.error("Firebase initialization failed:", e);
             }
         } else {
-            console.error("Firebase config is not available.");
+            console.error("Firebase config is not available. Please add your config.");
         }
 
         // ローディングメッセージを表示
@@ -175,11 +174,7 @@
                 return;
             }
             try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
+                await signInAnonymously(auth);
                 currentUserId = auth.currentUser.uid;
                 showStatusMessage(`ログインしました。ユーザーID: ${currentUserId} データロード中です...`);
                 initFirestoreListener();
@@ -191,7 +186,7 @@
 
         const initFirestoreListener = () => {
             if (!currentUserId || !db) return;
-            const userEventsCollectionPath = `/artifacts/${appId}/users/${currentUserId}/calendar_events`;
+            const userEventsCollectionPath = `/users/${currentUserId}/calendar_events`;
             const userEventsCollectionRef = collection(db, userEventsCollectionPath);
 
             onSnapshot(userEventsCollectionRef, (snapshot) => {
@@ -357,7 +352,7 @@
                     const storedData = eventData[selectedDate] || { event: '', todos: [] };
                     storedData.todos[index].completed = checkbox.checked;
                     if (currentUserId) {
-                        const docRef = doc(db, `/artifacts/${appId}/users/${currentUserId}/calendar_events`, selectedDate);
+                        const docRef = doc(db, `/users/${currentUserId}/calendar_events`, selectedDate);
                         await setDoc(docRef, storedData);
                         showStatusMessage(`TODO:「${todo.text}」の状態が変更されました。`);
                     } else {
@@ -381,7 +376,7 @@
                     const storedData = eventData[selectedDate] || { event: '', todos: [] };
                     storedData.todos.splice(index, 1);
                     if (currentUserId) {
-                        const docRef = doc(db, `/artifacts/${appId}/users/${currentUserId}/calendar_events`, selectedDate);
+                        const docRef = doc(db, `/users/${currentUserId}/calendar_events`, selectedDate);
                         await setDoc(docRef, storedData);
                         showStatusMessage(`TODO:「${todo.text}」が削除されました。`);
                     } else {
@@ -435,7 +430,7 @@
                 showStatusMessage('ローカルモードでは変更が保存されません。');
                 return;
             }
-            const docRef = doc(db, `/artifacts/${appId}/users/${currentUserId}/calendar_events`, selectedDate);
+            const docRef = doc(db, `/users/${currentUserId}/calendar_events`, selectedDate);
             const storedData = eventData[selectedDate] || { event: '', todos: [] };
             storedData.event = eventInput.value;
             await setDoc(docRef, storedData);
@@ -459,7 +454,7 @@
             }
 
             storedData.todos.push({ text: newTodoText, completed: false });
-            const docRef = doc(db, `/artifacts/${appId}/users/${currentUserId}/calendar_events`, selectedDate);
+            const docRef = doc(db, `/users/${currentUserId}/calendar_events`, selectedDate);
             await setDoc(docRef, storedData);
             renderTodos(storedData.todos);
             newTodoInput.value = '';
