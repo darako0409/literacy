@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2025年カレンダー</title>
+    <title>2025年</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -568,14 +568,15 @@
                 if (data && data.todos) {
                     data.todos.filter(todo => !todo.completed).forEach(todo => {
                         incompleteList.push({
-                            date: parts[2], // 日だけを取得
+                            date: dateKey, //日付全体を渡す
+                            day: parts[2], // 日だけを取得
                             text: todo.text
                         });
                     });
                 }
             }
             
-            incompleteList.sort((a, b) => a.date - b.date);
+            incompleteList.sort((a, b) => new Date(a.date) - new Date(b.date));
 
             if (incompleteList.length > 0) {
                 incompleteList.forEach(item => {
@@ -584,7 +585,7 @@
                     
                     const dateSpan = document.createElement('span');
                     dateSpan.classList.add('font-bold', 'flex-shrink-0');
-                    dateSpan.textContent = `${item.date}日:`;
+                    dateSpan.textContent = `${item.day}日:`;
                     
                     const textSpan = document.createElement('span');
                     textSpan.classList.add('flex-1');
@@ -594,19 +595,19 @@
                     checkbox.type = 'checkbox';
                     checkbox.classList.add('form-checkbox', 'h-5', 'w-5', 'text-blue-600', 'rounded', 'cursor-pointer', 'flex-shrink-0');
                     checkbox.addEventListener('change', async () => {
-                        const storedData = eventData[item.date] || { event: '', todos: [] };
-                        const todoIndex = storedData.todos.findIndex(todo => todo.text === item.text);
-                        if (todoIndex > -1) {
-                            storedData.todos[todoIndex].completed = true;
-                            if (currentUserId) {
-                                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                                const docRef = doc(db, `/artifacts/${appId}/public/data/calendar_events`, item.date);
-                                await setDoc(docRef, storedData);
-                                showStatusMessage(`TODO:「${item.text}」が完了しました。`);
-                            } else {
-                                renderIncompleteTodos();
-                            }
-                        }
+                         const storedData = eventData[item.date] || { event: '', todos: [] };
+                         const todoIndex = storedData.todos.findIndex(todo => todo.text === item.text);
+                         if (todoIndex > -1) {
+                             storedData.todos[todoIndex].completed = true;
+                             if (currentUserId) {
+                                 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                                 const docRef = doc(db, `/artifacts/${appId}/public/data/calendar_events`, item.date);
+                                 await setDoc(docRef, storedData);
+                                 showStatusMessage(`TODO:「${item.text}」が完了しました。`);
+                             } else {
+                                 renderIncompleteTodos();
+                             }
+                         }
                     });
 
                     todoDiv.appendChild(checkbox);
@@ -628,14 +629,15 @@
                 if (data && data.todos) {
                     data.todos.filter(todo => todo.completed).forEach(todo => {
                         completedList.push({
-                            date: parts[2], // 日だけを取得
+                            date: dateKey, //日付全体を渡す
+                            day: parts[2], // 日だけを取得
                             text: todo.text
                         });
                     });
                 }
             }
 
-            completedList.sort((a, b) => a.date - b.date);
+            completedList.sort((a, b) => new Date(a.date) - new Date(b.date));
 
             if (completedList.length > 0) {
                 completedList.forEach(item => {
@@ -664,7 +666,7 @@
 
                     const dateSpan = document.createElement('span');
                     dateSpan.classList.add('font-bold', 'flex-shrink-0');
-                    dateSpan.textContent = `${item.date}日:`;
+                    dateSpan.textContent = `${item.day}日:`;
                     
                     const textSpan = document.createElement('span');
                     textSpan.classList.add('flex-1', 'line-through');
