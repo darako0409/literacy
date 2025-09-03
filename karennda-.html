@@ -327,11 +327,15 @@
                     const storedData = eventData[selectedDate] || { event: '', todos: [] };
                     storedData.todos[index].completed = checkbox.checked;
                     await setDoc(doc(db, `/artifacts/${appId}/users/${currentUserId}/calendar_events`, selectedDate), storedData);
+                    showStatusMessage(`TODO:「${todo.text}」の状態が変更されました。`);
                 });
 
                 const textSpan = document.createElement('span');
                 textSpan.textContent = todo.text;
-                textSpan.classList.add('flex-1', 'text-gray-700', todo.completed ? 'line-through' : '');
+                textSpan.classList.add('flex-1', 'text-gray-700');
+                if (todo.completed) {
+                    textSpan.classList.add('line-through');
+                }
 
                 const deleteBtn = document.createElement('button');
                 deleteBtn.textContent = '削除';
@@ -339,7 +343,8 @@
                 deleteBtn.addEventListener('click', async () => {
                     const storedData = eventData[selectedDate] || { event: '', todos: [] };
                     storedData.todos.splice(index, 1);
-                    await setDoc(doc(db, `/artifacts/${appId}/users/${currentUserId}/calendar_events`, selectedDate), storedData);
+                    await setDoc(doc(db, `/artifacts/${appId}/users/${currentUserId}/calendar_events`, selectedData), storedData);
+                    showStatusMessage(`TODO:「${todo.text}」が削除されました。`);
                 });
 
                 todoItem.appendChild(checkbox);
