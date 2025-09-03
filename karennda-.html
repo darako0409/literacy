@@ -63,7 +63,7 @@
     </style>
 </head>
 <body class="bg-gray-100 p-8">
-    <div class="max-w-7xl mx-auto bg-white rounded-xl shadow-lg p-6">
+    <div class="max-w-7xl mx-auto bg-white rounded-xl shadow-lg p-6 mb-8">
         <div class="flex items-center justify-between mb-6">
             <h1 class="text-3xl font-bold text-gray-800">2025年 カレンダー</h1>
             <div class="flex space-x-2">
@@ -86,6 +86,14 @@
             <div id="calendar" class="calendar-grid">
                 <!-- カレンダーの日付がここに生成されます -->
             </div>
+        </div>
+    </div>
+
+    <!-- 未完了TODOリスト -->
+    <div class="max-w-7xl mx-auto bg-white rounded-xl shadow-lg p-6 mb-8">
+        <h2 class="text-2xl font-bold mb-4">未完了のやることリスト</h2>
+        <div id="incompleteTodos" class="space-y-4">
+            <!-- 未完了のTODOリストがここに生成されます -->
         </div>
     </div>
 
@@ -126,6 +134,7 @@
             const newTodoInput = document.getElementById('newTodoInput');
             const addTodoBtn = document.getElementById('addTodoBtn');
             const saveBtn = document.getElementById('saveBtn');
+            const incompleteTodosEl = document.getElementById('incompleteTodos');
 
             let currentMonth = new Date().getMonth();
             let currentYear = new Date().getFullYear();
@@ -151,7 +160,7 @@
             holidays[generateDateKey(2025, 8, 15)] = '振替休日';
             holidays[generateDateKey(2025, 8, 22)] = '敬老の日';
             holidays[generateDateKey(2025, 8, 23)] = '秋分の日';
-            holidays[generateDateKey(2025, 9, 13)] = 'スポーツの日'; // 2025年版
+            holidays[generateDateKey(2025, 9, 13)] = 'スポーツの日';
             holidays[generateDateKey(2025, 10, 3)] = '文化の日';
             holidays[generateDateKey(2025, 10, 23)] = '勤労感謝の日';
             holidays[generateDateKey(2025, 11, 23)] = '天皇誕生日';
@@ -165,7 +174,7 @@
 
                 currentMonthYearEl.textContent = `${year}年 ${month + 1}月`;
 
-                const startDayIndex = firstDay.getDay(); // 0: 日曜日, 6: 土曜日
+                const startDayIndex = firstDay.getDay();
 
                 // 先月の日付
                 for (let i = startDayIndex; i > 0; i--) {
@@ -232,6 +241,8 @@
                     cell.innerHTML = `<span class="day-number">${i}</span>`;
                     calendarEl.appendChild(cell);
                 }
+                
+                renderIncompleteTodos();
             };
 
             const openModal = (dateKey) => {
@@ -261,8 +272,11 @@
                     checkbox.checked = todo.completed;
                     checkbox.classList.add('form-checkbox', 'h-5', 'w-5', 'text-blue-600', 'rounded', 'cursor-pointer');
                     checkbox.addEventListener('change', () => {
-                        todo.completed = checkbox.checked;
-                        saveData();
+                        const storedData = getStoredData(selectedDate);
+                        storedData.todos[index].completed = checkbox.checked;
+                        setStoredData(selectedDate, storedData);
+                        renderTodos(storedData.todos);
+                        renderCalendar(currentYear, currentMonth); // カレンダーを再描画
                     });
 
                     const textSpan = document.createElement('span');
@@ -277,6 +291,7 @@
                         storedData.todos.splice(index, 1);
                         setStoredData(selectedDate, storedData);
                         renderTodos(storedData.todos);
+                        renderCalendar(currentYear, currentMonth); // カレンダーを再描画
                     });
 
                     todoItem.appendChild(checkbox);
@@ -284,6 +299,42 @@
                     todoItem.appendChild(deleteBtn);
                     todoListEl.appendChild(todoItem);
                 });
+            };
+
+            const renderIncompleteTodos = () => {
+                incompleteTodosEl.innerHTML = '';
+                const allKeys = Object.keys(localStorage);
+                const incompleteList = [];
+
+                for (const key of allKeys) {
+                    try {
+                        const data = JSON.parse(localStorage.getItem(key));
+                        if (data && data.todos) {
+                            const incomplete = data.todos.filter(todo => !todo.completed);
+                            if (incomplete.length > 0) {
+                                incomplete.forEach(todo => {
+                                    incompleteList.push({
+                                        date: key,
+                                        text: todo.text
+                                    });
+                                });
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Failed to parse localStorage data for key:', key, e);
+                    }
+                }
+
+                if (incompleteList.length > 0) {
+                    incompleteList.forEach(item => {
+                        const todoDiv = document.createElement('div');
+                        todoDiv.classList.add('bg-blue-100', 'rounded-md', 'p-3', 'shadow-sm', 'text-gray-800');
+                        todoDiv.innerHTML = `<span class="font-bold">${item.date}:</span> ${item.text}`;
+                        incompleteTodosEl.appendChild(todoDiv);
+                    });
+                } else {
+                    incompleteTodosEl.innerHTML = '<p class="text-gray-500 text-center">未完了のやることリストはありません。</p>';
+                }
             };
 
             const saveData = () => {
