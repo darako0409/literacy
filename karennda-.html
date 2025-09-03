@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2025年カレンダー</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+        }
+        .day-cell {
+            min-height: 120px;
+            border: 1px solid #e5e7eb;
+            padding: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            position: relative;
+            background-color: white;
+        }
+        .day-cell.prev-month, .day-cell.next-month {
+            color: #d1d5db;
+        }
+        .day-cell:not(.prev-month):not(.next-month):hover {
+            background-color: #f9fafb;
+        }
+        .day-number {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        .day-label {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            font-size: 0.875rem;
+            color: #9ca3af;
+        }
+        .day-cell.today {
+            border: 2px solid #3b82f6;
+        }
+        .holiday {
+            color: #ef4444;
+        }
+        .saturday {
+            color: #3b82f6;
+        }
+        .event {
+            font-size: 0.875rem;
+            color: #4b5563;
+            background-color: #e5e7eb;
+            padding: 2px 4px;
+            border-radius: 4px;
+            margin-top: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-7xl mx-auto bg-white rounded-xl shadow-lg p-6">
+        <div class="flex items-center justify-between mb-6">
+            <h1 class="text-3xl font-bold text-gray-800">2025年 カレンダー</h1>
+            <div class="flex space-x-2">
+                <button id="prevMonthBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-600 font-bold py-2 px-4 rounded-full transition-colors">&lt;</button>
+                <span id="currentMonthYear" class="text-2xl font-semibold text-gray-700 self-center"></span>
+                <button id="nextMonthBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-600 font-bold py-2 px-4 rounded-full transition-colors">&gt;</button>
+            </div>
+        </div>
+
+        <div class="calendar-container rounded-lg overflow-hidden border border-gray-200">
+            <div class="calendar-header calendar-grid text-center font-semibold bg-gray-200 text-gray-700 py-2">
+                <div class="saturday">日</div>
+                <div>月</div>
+                <div>火</div>
+                <div>水</div>
+                <div>木</div>
+                <div>金</div>
+                <div class="holiday">土</div>
+            </div>
+            <div id="calendar" class="calendar-grid">
+                <!-- カレンダーの日付がここに生成されます -->
+            </div>
+        </div>
+    </div>
+
+    <!-- モーダルウィンドウ -->
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-lg p-6 w-full max-w-xl">
+            <div class="flex justify-between items-center mb-4">
+                <h2 id="modalDate" class="text-2xl font-bold"></h2>
+                <button id="closeModalBtn" class="text-gray-500 hover:text-gray-700 text-2xl font-bold">&times;</button>
+            </div>
+            <h3 class="text-lg font-semibold mb-2">予定</h3>
+            <textarea id="eventInput" class="w-full h-24 p-2 mb-4 border rounded resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="予定を入力..."></textarea>
+            <h3 class="text-lg font-semibold mb-2">やることリスト</h3>
+            <div id="todoList" class="space-y-2">
+                <!-- TODOリストの項目がここに生成されます -->
+            </div>
+            <div class="flex mt-4 space-x-2">
+                <input type="text" id="newTodoInput" class="flex-1 p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="新しいやること...">
+                <button id="addTodoBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition-colors">追加</button>
+            </div>
+            <div class="flex justify-end mt-4">
+                <button id="saveBtn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition-colors">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const calendarEl = document.getElementById('calendar');
+            const currentMonthYearEl = document.getElementById('currentMonthYear');
+            const prevMonthBtn = document.getElementById('prevMonthBtn');
+            const nextMonthBtn = document.getElementById('nextMonthBtn');
+            const modalEl = document.getElementById('modal');
+            const closeModalBtn = document.getElementById('closeModalBtn');
+            const modalDateEl = document.getElementById('modalDate');
+            const eventInput = document.getElementById('eventInput');
+            const todoListEl = document.getElementById('todoList');
+            const newTodoInput = document.getElementById('newTodoInput');
+            const addTodoBtn = document.getElementById('addTodoBtn');
+            const saveBtn = document.getElementById('saveBtn');
+
+            let currentMonth = new Date().getMonth();
+            let currentYear = new Date().getFullYear();
+            let selectedDate = null;
+            let holidays = {};
+
+            const getStoredData = (date) => JSON.parse(localStorage.getItem(date)) || { event: '', todos: [] };
+            const setStoredData = (date, data) => localStorage.setItem(date, JSON.stringify(data));
+            const generateDateKey = (year, month, day) => `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            
+            // 2025年の日本の祝日データ
+            holidays[generateDateKey(2025, 0, 1)] = '元日';
+            holidays[generateDateKey(2025, 0, 13)] = '成人の日';
+            holidays[generateDateKey(2025, 1, 11)] = '建国記念の日';
+            holidays[generateDateKey(2025, 2, 20)] = '春分の日';
+            holidays[generateDateKey(2025, 3, 29)] = '昭和の日';
+            holidays[generateDateKey(2025, 4, 3)] = '憲法記念日';
+            holidays[generateDateKey(2025, 4, 4)] = 'みどりの日';
+            holidays[generateDateKey(2025, 4, 5)] = 'こどもの日';
+            holidays[generateDateKey(2025, 4, 6)] = '振替休日';
+            holidays[generateDateKey(2025, 6, 21)] = '海の日';
+            holidays[generateDateKey(2025, 7, 11)] = '山の日';
+            holidays[generateDateKey(2025, 8, 15)] = '振替休日';
+            holidays[generateDateKey(2025, 8, 22)] = '敬老の日';
+            holidays[generateDateKey(2025, 8, 23)] = '秋分の日';
+            holidays[generateDateKey(2025, 9, 13)] = 'スポーツの日'; // 2025年版
+            holidays[generateDateKey(2025, 10, 3)] = '文化の日';
+            holidays[generateDateKey(2025, 10, 23)] = '勤労感謝の日';
+            holidays[generateDateKey(2025, 11, 23)] = '天皇誕生日';
+            holidays[generateDateKey(2025, 11, 29)] = '振替休日';
+
+            const renderCalendar = (year, month) => {
+                calendarEl.innerHTML = '';
+                const firstDay = new Date(year, month, 1);
+                const lastDay = new Date(year, month + 1, 0);
+                const prevLastDay = new Date(year, month, 0);
+
+                currentMonthYearEl.textContent = `${year}年 ${month + 1}月`;
+
+                const startDayIndex = firstDay.getDay(); // 0: 日曜日, 6: 土曜日
+
+                // 先月の日付
+                for (let i = startDayIndex; i > 0; i--) {
+                    const day = prevLastDay.getDate() - i + 1;
+                    const cell = document.createElement('div');
+                    cell.classList.add('day-cell', 'prev-month', 'p-2');
+                    cell.innerHTML = `<span class="day-number">${day}</span>`;
+                    calendarEl.appendChild(cell);
+                }
+
+                // 今月の日付
+                for (let i = 1; i <= lastDay.getDate(); i++) {
+                    const date = new Date(year, month, i);
+                    const dateKey = generateDateKey(year, month, i);
+                    const storedData = getStoredData(dateKey);
+
+                    const cell = document.createElement('div');
+                    cell.classList.add('day-cell', 'p-2', 'relative');
+                    cell.dataset.date = dateKey;
+
+                    if (date.getDay() === 0 || holidays[dateKey]) {
+                        cell.classList.add('holiday');
+                    }
+                    if (date.getDay() === 6) {
+                        cell.classList.add('saturday');
+                    }
+                    if (date.toDateString() === new Date().toDateString()) {
+                        cell.classList.add('today');
+                    }
+
+                    const daySpan = document.createElement('span');
+                    daySpan.classList.add('day-number');
+                    daySpan.textContent = i;
+                    cell.appendChild(daySpan);
+
+                    if (holidays[dateKey]) {
+                        const holidayLabel = document.createElement('div');
+                        holidayLabel.classList.add('event', 'bg-red-200', 'text-red-800');
+                        holidayLabel.textContent = holidays[dateKey];
+                        cell.appendChild(holidayLabel);
+                    }
+
+                    if (storedData.event) {
+                        const eventDiv = document.createElement('div');
+                        eventDiv.classList.add('event', 'mt-1');
+                        eventDiv.textContent = storedData.event;
+                        cell.appendChild(eventDiv);
+                    }
+
+                    cell.addEventListener('click', () => {
+                        selectedDate = dateKey;
+                        openModal(dateKey);
+                    });
+
+                    calendarEl.appendChild(cell);
+                }
+
+                // 来月の日付
+                const totalCells = startDayIndex + lastDay.getDate();
+                const nextDays = 42 - totalCells;
+                for (let i = 1; i <= nextDays; i++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('day-cell', 'next-month', 'p-2');
+                    cell.innerHTML = `<span class="day-number">${i}</span>`;
+                    calendarEl.appendChild(cell);
+                }
+            };
+
+            const openModal = (dateKey) => {
+                const storedData = getStoredData(dateKey);
+                modalDateEl.textContent = `${dateKey.replace(/-/g, '/')} の予定`;
+                eventInput.value = storedData.event;
+                renderTodos(storedData.todos);
+                modalEl.classList.remove('hidden');
+                modalEl.classList.add('flex');
+            };
+
+            const closeModal = () => {
+                modalEl.classList.add('hidden');
+                modalEl.classList.remove('flex');
+                selectedDate = null;
+            };
+
+            const renderTodos = (todos) => {
+                todoListEl.innerHTML = '';
+                if (!todos) return;
+                todos.forEach((todo, index) => {
+                    const todoItem = document.createElement('div');
+                    todoItem.classList.add('flex', 'items-center', 'space-x-2', 'bg-gray-50', 'p-2', 'rounded');
+                    
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.checked = todo.completed;
+                    checkbox.classList.add('form-checkbox', 'h-5', 'w-5', 'text-blue-600', 'rounded', 'cursor-pointer');
+                    checkbox.addEventListener('change', () => {
+                        todo.completed = checkbox.checked;
+                        saveData();
+                    });
+
+                    const textSpan = document.createElement('span');
+                    textSpan.textContent = todo.text;
+                    textSpan.classList.add('flex-1', 'text-gray-700', todo.completed ? 'line-through' : '');
+
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.textContent = '削除';
+                    deleteBtn.classList.add('bg-red-500', 'hover:bg-red-600', 'text-white', 'py-1', 'px-2', 'rounded', 'text-xs', 'transition-colors');
+                    deleteBtn.addEventListener('click', () => {
+                        const storedData = getStoredData(selectedDate);
+                        storedData.todos.splice(index, 1);
+                        setStoredData(selectedDate, storedData);
+                        renderTodos(storedData.todos);
+                    });
+
+                    todoItem.appendChild(checkbox);
+                    todoItem.appendChild(textSpan);
+                    todoItem.appendChild(deleteBtn);
+                    todoListEl.appendChild(todoItem);
+                });
+            };
+
+            const saveData = () => {
+                if (!selectedDate) return;
+                const storedData = getStoredData(selectedDate);
+                storedData.event = eventInput.value;
+                setStoredData(selectedDate, storedData);
+                renderCalendar(currentYear, currentMonth);
+            };
+
+            const addTodo = () => {
+                const newTodoText = newTodoInput.value.trim();
+                if (newTodoText === '') return;
+                const storedData = getStoredData(selectedDate);
+                storedData.todos.push({ text: newTodoText, completed: false });
+                setStoredData(selectedDate, storedData);
+                renderTodos(storedData.todos);
+                newTodoInput.value = '';
+            };
+
+            // イベントリスナー
+            prevMonthBtn.addEventListener('click', () => {
+                currentMonth--;
+                if (currentMonth < 0) {
+                    currentMonth = 11;
+                    currentYear--;
+                }
+                renderCalendar(currentYear, currentMonth);
+            });
+
+            nextMonthBtn.addEventListener('click', () => {
+                currentMonth++;
+                if (currentMonth > 11) {
+                    currentMonth = 0;
+                    currentYear++;
+                }
+                renderCalendar(currentYear, currentMonth);
+            });
+
+            closeModalBtn.addEventListener('click', closeModal);
+            saveBtn.addEventListener('click', () => {
+                saveData();
+                closeModal();
+            });
+            addTodoBtn.addEventListener('click', addTodo);
+            newTodoInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    addTodo();
+                }
+            });
+
+            // 初期表示
+            renderCalendar(currentYear, currentMonth);
+        });
+    </script>
+</body>
+</html>
