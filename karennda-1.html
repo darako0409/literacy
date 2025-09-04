@@ -225,13 +225,13 @@
         import { getFirestore, doc, setDoc, onSnapshot, collection, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
-            apiKey: "AIzaSyD1as9zQr8P6k8Up9Y4FnO3DYroyvgMnAM",
-            authDomain: "karennda-e8465.firebaseapp.com",
-            projectId: "karennda-e8465",
-            storageBucket: "karennda-e8465.firebasestorage.app",
-            messagingSenderId: "1023443880200",
-            appId: "1:1023443880200:web:ee995edd613fbc626544bd",
-            measurementId: "G-E9Y0L9P95V"
+          apiKey: import.meta.env.REACT_APP_FIREBASE_API_KEY,
+          authDomain: import.meta.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
+          projectId: import.meta.env.REACT_APP_FIREBASE_PROJECT_ID,
+          storageBucket: import.meta.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
+          messagingSenderId: import.meta.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
+          appId: import.meta.env.REACT_APP_FIREBASE_APP_ID,
+          measurementId: import.meta.env.REACT_APP_FIREBASE_MEASUREMENT_ID
         };
         
         let app = null;
