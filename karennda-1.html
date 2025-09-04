@@ -317,8 +317,8 @@
                 showStatusMessage('データのロード中にエラーが発生しました。');
             });
 
-            const sharedNotesDocPath = `/artifacts/${appId}/public/data/monthly_notes/${currentYearMonth()}`;
-            const sharedNotesDocRef = doc(db, sharedNotesDocPath, 'notes');
+            const sharedNotesDocPath = `/artifacts/${appId}/public/data/monthly_notes`;
+            const sharedNotesDocRef = doc(db, sharedNotesDocPath, currentYearMonth());
             onSnapshot(sharedNotesDocRef, (doc) => {
                 if (doc.exists()) {
                     generalNotesData = doc.data();
