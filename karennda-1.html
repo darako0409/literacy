@@ -318,7 +318,7 @@
             });
 
             const sharedNotesDocPath = `/artifacts/${appId}/public/data/monthly_notes/${currentYearMonth()}`;
-            const sharedNotesDocRef = doc(db, sharedNotesDocPath);
+            const sharedNotesDocRef = doc(db, sharedNotesDocPath, 'notes');
             onSnapshot(sharedNotesDocRef, (doc) => {
                 if (doc.exists()) {
                     generalNotesData = doc.data();
@@ -718,7 +718,7 @@
                 return;
             }
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-            const notesDocRef = doc(db, `/artifacts/${appId}/public/data/monthly_notes/${currentYearMonth()}`, 'notes');
+            const notesDocRef = doc(db, `/artifacts/${appId}/public/data/monthly_notes`, currentYearMonth());
             const updatedData = { ...generalNotesData, [currentEditingField]: notesInputEl.value };
             
             await setDoc(notesDocRef, updatedData);
