@@ -220,19 +220,10 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, collection, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyD1as9zQr8P6k8Up9Y4FnO3DYroyvgMnAM",
-            authDomain: "karennda-e8465.firebaseapp.com",
-            projectId: "karennda-e8465",
-            storageBucket: "karennda-e8465.firebasestorage.app",
-            messagingSenderId: "1023443880200",
-            appId: "1:1023443880200:web:ee995edd613fbc626544bd",
-            measurementId: "G-E9Y0L9P95V"
-        };
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, onSnapshot, collection, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { firebaseConfig } from "./config.js";
         
         let app = null;
         let db = null;
