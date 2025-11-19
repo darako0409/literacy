@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>立体切断シミュレーター v15 (iOS対応)</title>
+    <title>立体切断シミュレーター v16 (スマホ最適化)</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: "Helvetica Neue", Arial, sans-serif; background-color: #f0f0f0; }
-        #canvas-container { width: 100vw; height: 100vh; position: relative; }
+        #canvas-container { width: 100vw; height: 100vh; position: relative; touch-action: none; /* スマホでの誤操作防止 */ }
         
+        /* 共通: 読み込み・エラー表示 */
         #loading-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: #fff; z-index: 9999; display: flex; flex-direction: column;
@@ -30,22 +31,76 @@
             display: none; 
         }
 
-        /* UIパネル */
+        /* =========================================
+           UIパネルのデザイン (PC/スマホ切り替え)
+           ========================================= */
+        
+        /* ベーススタイル */
         #ui-panel {
-            position: absolute; top: 10px; left: 10px;
-            width: 340px; background: rgba(255, 255, 255, 0.95);
-            padding: 15px; border-radius: 8px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-            max-height: 85vh; overflow-y: auto;
             z-index: 10;
             font-size: 14px;
-            display: none; 
-        }
-        @media (max-width: 600px) {
-            #ui-panel { width: 90%; left: 5%; top: 10px; max-height: 60vh; }
+            display: none; /* 初期ロードまで非表示 */
+            transition: transform 0.3s ease, opacity 0.3s ease;
         }
 
-        h2 { margin-top: 0; font-size: 18px; color: #333; border-bottom: 2px solid #007bff; padding-bottom: 8px; margin-bottom: 15px;}
+        /* ▼▼ PC用スタイル (画面幅 601px以上) ▼▼ */
+        @media (min-width: 601px) {
+            #ui-panel {
+                position: absolute; top: 10px; left: 10px;
+                width: 340px; border-radius: 8px;
+                max-height: 90vh; overflow-y: auto;
+            }
+            #mobile-toggle-btn { display: none; } /* PCではトグルボタン不要 */
+            #panel-close-btn { display: none; }
+        }
+
+        /* ▼▼ スマホ用スタイル (画面幅 600px以下) ▼▼ */
+        @media (max-width: 600px) {
+            #ui-panel {
+                position: absolute; bottom: 0; left: 0;
+                width: 100%; 
+                border-radius: 20px 20px 0 0; /* 上だけ丸く */
+                max-height: 50vh; /* 画面の半分まで */
+                overflow-y: auto;
+                box-sizing: border-box;
+                padding-bottom: 30px; /* 下部に余裕 */
+                transform: translateY(0); /* 表示状態 */
+            }
+            
+            /* パネルが閉じている時 */
+            #ui-panel.closed {
+                transform: translateY(110%); /* 画面外へスライド */
+                pointer-events: none;
+            }
+
+            /* スマホ用: パネルを開くボタン */
+            #mobile-toggle-btn {
+                position: absolute; bottom: 20px; right: 20px;
+                width: 50px; height: 50px;
+                background: #007bff; color: white;
+                border-radius: 50%;
+                border: none;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+                font-size: 24px;
+                display: flex; justify-content: center; align-items: center;
+                z-index: 20;
+                cursor: pointer;
+            }
+
+            /* スマホ用: パネル内の「閉じる」バー */
+            #panel-header-mobile {
+                display: flex; justify-content: space-between; align-items: center;
+                margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px;
+            }
+            .drag-handle {
+                width: 40px; height: 5px; background: #ccc; border-radius: 3px; margin: 0 auto;
+            }
+        }
+
+        h2 { margin-top: 0; font-size: 16px; color: #333; padding-bottom: 5px; margin-bottom: 10px;}
         
         .tab-container { display: flex; margin-bottom: 15px; border-bottom: 1px solid #ddd; }
         .tab-btn {
@@ -65,24 +120,21 @@
         .checkbox-label { font-weight: normal; display: flex; align-items: center; gap: 5px; margin-bottom: 5px; }
 
         button {
-            width: 100%; padding: 10px; margin-bottom: 8px;
+            width: 100%; padding: 12px; /* スマホで押しやすいよう少し大きく */
+            margin-bottom: 8px;
             background-color: #007bff; color: white; border: none;
-            border-radius: 4px; cursor: pointer; transition: background 0.2s;
+            border-radius: 8px; cursor: pointer; transition: background 0.2s;
+            font-size: 14px;
         }
         button:hover { background-color: #0056b3; }
         button.secondary { background-color: #6c757d; }
-        button.secondary:hover { background-color: #545b62; }
         button.danger { background-color: #dc3545; }
         button:disabled { background-color: #ccc; cursor: not-allowed; opacity: 0.7; }
         
-        /* iOS用ボタン */
-        #ios-ar-btn {
-            background-color: #28a745; display: none; margin-top: 10px;
-        }
-        #ios-ar-btn:hover { background-color: #218838; }
-
-        select { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; }
-        input[type=range] { width: 100%; cursor: pointer; }
+        #ios-ar-btn { background-color: #28a745; display: none; margin-top: 10px; }
+        
+        select { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 16px; /* iOSでのズーム防止 */ }
+        input[type=range] { width: 100%; cursor: pointer; height: 30px; /* スマホで操作しやすく */ }
         .value-display { float: right; font-weight: normal; font-family: monospace; }
         .hint-text { font-size: 12px; color: #666; margin-top: -2px; margin-bottom: 8px; line-height: 1.4; }
         
@@ -115,8 +167,13 @@
     <div id="labels-container"></div>
 </div>
 
+<button id="mobile-toggle-btn" onclick="togglePanel()">⚙️</button>
+
 <div id="ui-panel">
-    <h2>立体切断シミュレーター v15</h2>
+    <div id="panel-header-mobile" style="display:none;">
+        <span>設定・操作</span>
+        <button onclick="togglePanel()" style="width:auto; padding:5px 10px; margin:0; background:#ddd; color:#333;">▼ 閉じる</button>
+    </div>
 
     <div class="control-group">
         <label>図形選択</label>
@@ -165,19 +222,13 @@
     <div id="mode-ar" class="mode-content">
         <div class="control-group">
             <label>AR（拡張現実）モード</label>
-            
             <div id="ar-debug-info" class="debug-info">診断中...</div>
-
             <div id="webxr-instructions" style="display:none;">
-                <p class="hint-text">
-                    1. 下の <b>[START AR]</b> を押す<br>
-                    2. 床や机を映し、白いリングが出たらタップ
-                </p>
+                <p class="hint-text">1. 下の <b>[START AR]</b> を押す<br>2. 白いリングが出たらタップ</p>
             </div>
-
             <button id="ios-ar-btn">📱 AR Quick Look (iOS)</button>
             <p id="ios-hint" class="hint-text" style="display:none;">
-                ボタンを押すと、現在の図形をARファイルに変換して表示します。(カメラ許可は不要です)
+                ボタンを押すとARビューアーが起動します。
             </p>
         </div>
     </div>
@@ -191,13 +242,10 @@
     <div class="control-group">
         <button id="undo-btn" class="secondary" disabled>↩️ ひとつ戻る (Undo)</button>
         <div style="margin-top:15px; padding-top:10px; border-top:1px solid #ddd;">
-             <label style="font-size:12px; margin-bottom:8px; color:#666;">▼ 表示オプション</label>
-             <label class="checkbox-label"><input type="checkbox" id="wireframe-check"> ワイヤーフレームのみ</label>
-             <label class="checkbox-label"><input type="checkbox" id="grid-visible-check" checked> グリッド・軸を表示</label>
-             <label class="checkbox-label"><input type="checkbox" id="labels-visible-check" checked> 頂点ラベル(A,B..)を表示</label>
-             <hr style="border:0; border-top:1px dashed #eee; margin:5px 0;">
-             <label class="checkbox-label"><input type="checkbox" id="plane-visible-check" checked> 青い切断面を表示</label>
-             <label class="checkbox-label"><input type="checkbox" id="slider-visible-check" checked> スライダー操作パネルを表示</label>
+             <label class="checkbox-label"><input type="checkbox" id="wireframe-check"> ワイヤーフレーム</label>
+             <label class="checkbox-label"><input type="checkbox" id="grid-visible-check" checked> グリッド表示</label>
+             <label class="checkbox-label"><input type="checkbox" id="labels-visible-check" checked> 点ラベル(A,B..)</label>
+             <label class="checkbox-label"><input type="checkbox" id="plane-visible-check" checked> 切断面表示</label>
         </div>
     </div>
 </div>
@@ -217,14 +265,20 @@
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
     import { ARButton } from 'three/addons/webxr/ARButton.js';
-    import { USDZExporter } from 'three/addons/exporters/USDZExporter.js'; // iOS用エクスポーター
+    import { USDZExporter } from 'three/addons/exporters/USDZExporter.js';
     import { SUBTRACTION, Brush, Evaluator } from 'three-bvh-csg';
 
+    // UI初期化
     const overlay = document.getElementById('loading-overlay');
     if(overlay) overlay.style.display = 'none';
     document.getElementById('ui-panel').style.display = 'block';
+    
+    // スマホかどうかの簡易判定でヘッダーを表示
+    if (window.innerWidth <= 600) {
+        document.getElementById('panel-header-mobile').style.display = 'flex';
+    }
 
-    // --- 環境判定ロジック ---
+    // --- 環境判定 ---
     let isWebXRAvailable = ('xr' in navigator);
     const isIos = /iPhone|iPad|iPod/i.test(navigator.userAgent);
     
@@ -233,39 +287,31 @@
         const webxrInst = document.getElementById('webxr-instructions');
         const iosBtn = document.getElementById('ios-ar-btn');
         const iosHint = document.getElementById('ios-hint');
-
         let html = "";
-
         if (isWebXRAvailable && !isIos) {
-            // Android / WebXR対応PC
-            html += "端末: WebXR対応 (Android等)<br>ARボタンを表示します。";
+            html += "端末: Android (WebXR対応)";
             webxrInst.style.display = 'block';
             return 'webxr';
         } else if (isIos) {
-            // iOS (Safari)
-            html += "端末: iOS (iPhone/iPad)<br><b>AR Quick Look</b> モードで動作します。<br>下の緑のボタンを押すとARビューアーが起動します。";
+            html += "端末: iPhone/iPad (AR Quick Look)";
             iosBtn.style.display = 'block';
             iosHint.style.display = 'block';
             return 'ios';
         } else {
-            // 非対応PC
-            html += "端末: AR非対応 (PC等)<br>この端末ではAR機能は使用できません。<br>スライダー操作等は可能です。";
+            html += "端末: PC (AR非対応)";
             return 'none';
         }
         debugEl.innerHTML = html;
     }
-
     const arMode = checkAREnvironment();
-    // ------------------------
 
+    // --- 3Dセットアップ ---
     const container = document.getElementById('canvas-container');
     const labelsContainer = document.getElementById('labels-container');
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xfafafa);
-
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
     camera.position.set(6, 5, 8);
-
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
@@ -273,118 +319,74 @@
     if (isWebXRAvailable) renderer.xr.enabled = true; 
     container.appendChild(renderer.domElement);
 
-    // WebXRボタン (Android用)
-    let webXrButton = null;
+    // WebXR Button (Android)
     if (arMode === 'webxr') {
         try {
-            webXrButton = ARButton.createButton(renderer, { 
-                requiredFeatures: ['hit-test'],
-                optionalFeatures: ['dom-overlay'],
+            const webXrButton = ARButton.createButton(renderer, { 
+                requiredFeatures: ['hit-test'], optionalFeatures: ['dom-overlay'],
                 domOverlay: { root: document.getElementById('ui-panel') } 
             });
             document.body.appendChild(webXrButton);
             webXrButton.style.display = 'none';
+            // グローバルアクセス用に保存
+            window.webXrButton = webXrButton;
         } catch(e) {}
     }
 
-    // iOS Quick Lookボタン処理
+    // iOS Export
     document.getElementById('ios-ar-btn').addEventListener('click', async () => {
         if (!currentShapeBrush) return;
-        
         const btn = document.getElementById('ios-ar-btn');
-        btn.innerText = "ARファイルを生成中...";
-        btn.disabled = true;
-
+        const originalText = btn.innerText;
+        btn.innerText = "生成中..."; btn.disabled = true;
         try {
             const exporter = new USDZExporter();
-            // currentShapeBrushだけをエクスポートする
-            // サイズが3mだとデカすぎるので、一時的にクローンして小さくする
             const clone = currentShapeBrush.clone();
-            clone.scale.set(0.05, 0.05, 0.05); // 卓上サイズに
-            clone.rotation.x = -Math.PI / 2;   // 向き調整(USDZの座標系用)
+            clone.scale.set(0.05, 0.05, 0.05);
+            clone.rotation.x = -Math.PI / 2;
             clone.updateMatrixWorld();
-
-            const arraybuffer = await exporter.parse( clone );
-            const blob = new Blob( [ arraybuffer ], { type: 'model/vnd.usdz+zip' } );
-            const url = URL.createObjectURL( blob );
-
-            // リンクを作成してクリック（AR Quick Look起動）
-            const link = document.createElement( 'a' );
-            link.rel = 'ar';
-            link.href = url;
-            // アイコン用画像（ダミーでも動くが推奨）
-            const img = document.createElement('img');
-            link.appendChild(img);
-            
+            const arraybuffer = await exporter.parse(clone);
+            const blob = new Blob([arraybuffer], { type: 'model/vnd.usdz+zip' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.rel = 'ar'; link.href = url;
+            link.appendChild(document.createElement('img'));
             link.click();
-
-            btn.innerText = "📱 AR Quick Look (iOS)";
-            btn.disabled = false;
-
+            btn.innerText = originalText; btn.disabled = false;
         } catch(err) {
-            alert("AR生成エラー: " + err.message);
-            btn.innerText = "エラー発生";
-            btn.disabled = false;
+            alert("エラー: " + err.message);
+            btn.innerText = originalText; btn.disabled = false;
         }
     });
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
+    const ambientLight = new THREE.AmbientLight(0xffffff, 2.5); scene.add(ambientLight);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.5); dirLight.position.set(5, 10, 7); dirLight.castShadow = true; scene.add(dirLight);
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.5); fillLight.position.set(-5, 0, -5); scene.add(fillLight);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 2.5); 
-    scene.add(ambientLight);
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
-    dirLight.position.set(5, 10, 7);
-    dirLight.castShadow = true;
-    scene.add(dirLight);
-    const fillLight = new THREE.DirectionalLight(0xffffff, 0.5);
-    fillLight.position.set(-5, 0, -5);
-    scene.add(fillLight);
-
-    let contentGroup = new THREE.Group();
-    scene.add(contentGroup);
-
-    let currentShapeBrush;    
-    let materialStandard;     
-    let historyStack = [];    
-    let cutterGroup;
-    let visualPlane;
-    let invisibleCutterBrush;
+    let contentGroup = new THREE.Group(); scene.add(contentGroup);
+    let currentShapeBrush, materialStandard, cutterGroup, visualPlane, invisibleCutterBrush;
     let currentMode = 'slider'; 
-    let interactionObjects = []; 
-    let selectedPoints = [];     
-    let pointMarkers = [];       
-    let raycaster = new THREE.Raycaster();
-    let mouse = new THREE.Vector2();
-    let hoveredObject = null;    
-    let helperGroup = new THREE.Group();
-    contentGroup.add(helperGroup);
-    let vertexLabels = []; 
-    let gridHelper, axesHelper;
+    let interactionObjects = [], selectedPoints = [], pointMarkers = [];
+    let raycaster = new THREE.Raycaster(), mouse = new THREE.Vector2(), hoveredObject = null;    
+    let helperGroup = new THREE.Group(); contentGroup.add(helperGroup);
+    let vertexLabels = [], gridHelper, axesHelper;
     const evaluator = new Evaluator();
-    let reticle;
-    let hitTestSource = null;
-    let hitTestSourceRequested = false;
+    let reticle, hitTestSource = null, hitTestSourceRequested = false;
+    let historyStack = [];
 
-    materialStandard = new THREE.MeshStandardMaterial({ 
-        color: 0x66ccff, roughness: 0.5, metalness: 0.0, transparent: true, opacity: 0.9, side: THREE.DoubleSide,
-    });
+    materialStandard = new THREE.MeshStandardMaterial({ color: 0x66ccff, roughness: 0.5, metalness: 0.0, transparent: true, opacity: 0.9, side: THREE.DoubleSide });
 
     init();
 
     function init() {
         try {
-            gridHelper = new THREE.GridHelper(20, 20, 0xcccccc, 0xe5e5e5);
-            contentGroup.add(gridHelper);
-            axesHelper = new THREE.AxesHelper(5);
-            contentGroup.add(axesHelper);
-            setupCutterSystem();
-            createShape('cube');
-            updateCutterTransform();
+            gridHelper = new THREE.GridHelper(20, 20, 0xcccccc, 0xe5e5e5); contentGroup.add(gridHelper);
+            axesHelper = new THREE.AxesHelper(5); contentGroup.add(axesHelper);
+            setupCutterSystem(); createShape('cube'); updateCutterTransform();
             reticle = new THREE.Mesh(new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-            reticle.matrixAutoUpdate = false;
-            reticle.visible = false;
-            scene.add(reticle); 
+            reticle.matrixAutoUpdate = false; reticle.visible = false; scene.add(reticle); 
             window.addEventListener('resize', onWindowResize);
             renderer.domElement.addEventListener('pointermove', onPointerMove); 
             renderer.domElement.addEventListener('pointerdown', onPointerDown); 
@@ -396,36 +398,45 @@
         } catch (e) { console.error(e); }
     }
 
-    function onSessionStart() {
-        contentGroup.scale.set(0.05, 0.05, 0.05);
-        scene.background = null; 
+    // --- パネル開閉ロジック (Global Scope) ---
+    window.togglePanel = function() {
+        const panel = document.getElementById('ui-panel');
+        const btn = document.getElementById('mobile-toggle-btn');
+        
+        if (panel.classList.contains('closed')) {
+            // 開く
+            panel.classList.remove('closed');
+            btn.style.display = 'none'; // パネルが開いたらボタンは消す
+        } else {
+            // 閉じる
+            panel.classList.add('closed');
+            btn.style.display = 'flex'; // パネルが閉じたらボタンを出す
+        }
+    };
+
+    // 初期状態：スマホなら閉じておく
+    if (window.innerWidth <= 600) {
+        document.getElementById('ui-panel').classList.add('closed');
+    } else {
+        document.getElementById('mobile-toggle-btn').style.display = 'none';
     }
-    function onSessionEnd() {
-        contentGroup.scale.set(1, 1, 1);
-        contentGroup.position.set(0, 0, 0);
-        contentGroup.rotation.set(0, 0, 0);
-        scene.background = new THREE.Color(0xfafafa);
-        reticle.visible = false;
-        hitTestSource = null;
-        hitTestSourceRequested = false;
-    }
+
+    function onSessionStart() { contentGroup.scale.set(0.05, 0.05, 0.05); scene.background = null; }
+    function onSessionEnd() { contentGroup.scale.set(1, 1, 1); contentGroup.position.set(0, 0, 0); contentGroup.rotation.set(0, 0, 0); scene.background = new THREE.Color(0xfafafa); reticle.visible = false; hitTestSource = null; hitTestSourceRequested = false; }
+
     function setupCutterSystem() {
-        cutterGroup = new THREE.Group();
-        contentGroup.add(cutterGroup); 
+        cutterGroup = new THREE.Group(); contentGroup.add(cutterGroup); 
         const planeGeo = new THREE.PlaneGeometry(12, 12);
         const planeMat = new THREE.MeshBasicMaterial({ color: 0x007bff, opacity: 0.2, transparent: true, side: THREE.DoubleSide, depthWrite: false });
-        visualPlane = new THREE.Mesh(planeGeo, planeMat);
-        visualPlane.rotation.x = -Math.PI / 2;
+        visualPlane = new THREE.Mesh(planeGeo, planeMat); visualPlane.rotation.x = -Math.PI / 2;
         const edges = new THREE.EdgesGeometry(planeGeo);
         const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x0000ff, opacity: 0.3, transparent:true }));
-        visualPlane.add(line);
-        cutterGroup.add(visualPlane);
+        visualPlane.add(line); cutterGroup.add(visualPlane);
         const boxSize = 30;
-        const boxGeo = new THREE.BoxGeometry(boxSize, boxSize, boxSize);
-        boxGeo.translate(0, boxSize / 2, 0); 
-        invisibleCutterBrush = new Brush(boxGeo, new THREE.MeshBasicMaterial({ visible: false }));
-        cutterGroup.add(invisibleCutterBrush);
+        const boxGeo = new THREE.BoxGeometry(boxSize, boxSize, boxSize); boxGeo.translate(0, boxSize / 2, 0); 
+        invisibleCutterBrush = new Brush(boxGeo, new THREE.MeshBasicMaterial({ visible: false })); cutterGroup.add(invisibleCutterBrush);
     }
+
     function createShape(type) {
         let geometry;
         switch(type) {
@@ -437,46 +448,28 @@
         }
         if (currentShapeBrush) contentGroup.remove(currentShapeBrush);
         currentShapeBrush = new Brush(geometry, materialStandard);
-        currentShapeBrush.castShadow = true;
-        currentShapeBrush.receiveShadow = true;
+        currentShapeBrush.castShadow = true; currentShapeBrush.receiveShadow = true;
         contentGroup.add(currentShapeBrush);
         historyStack = [];
-        createSnapPoints(geometry, currentShapeBrush);
-        createLabels(geometry, currentShapeBrush); 
+        createSnapPoints(geometry, currentShapeBrush); createLabels(geometry, currentShapeBrush); 
         updateUI(); 
     }
-    function updateUI() {
-        const undoBtn = document.getElementById('undo-btn');
-        if (undoBtn) undoBtn.disabled = (historyStack.length === 0);
-    }
+
+    function updateUI() { const undoBtn = document.getElementById('undo-btn'); if (undoBtn) undoBtn.disabled = (historyStack.length === 0); }
     function createLabels(geometry, mesh) {
-        vertexLabels.forEach(l => l.element.remove());
-        vertexLabels = [];
+        vertexLabels.forEach(l => l.element.remove()); vertexLabels = [];
         if (!document.getElementById('labels-visible-check').checked) return;
-        const posAttr = geometry.attributes.position;
-        const uniquePoints = [];
-        const threshold = 0.01;
+        const posAttr = geometry.attributes.position; const uniquePoints = []; const threshold = 0.01;
         for (let i = 0; i < posAttr.count; i++) {
             const v = new THREE.Vector3().fromBufferAttribute(posAttr, i);
-            let exists = false;
-            for (let p of uniquePoints) {
-                if (p.distanceTo(v) < threshold) { exists = true; break; }
-            }
+            let exists = false; for (let p of uniquePoints) { if (p.distanceTo(v) < threshold) { exists = true; break; } }
             if (!exists) uniquePoints.push(v);
         }
-        uniquePoints.sort((a, b) => {
-            if (Math.abs(b.y - a.y) > 0.1) return b.y - a.y; 
-            if (Math.abs(b.x - a.x) > 0.1) return a.x - b.x; 
-            return a.z - b.z;
-        });
+        uniquePoints.sort((a, b) => { if (Math.abs(b.y - a.y) > 0.1) return b.y - a.y; if (Math.abs(b.x - a.x) > 0.1) return a.x - b.x; return a.z - b.z; });
         const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         uniquePoints.forEach((localPos, index) => {
             if (index >= chars.length) return;
-            const labelText = chars[index];
-            const div = document.createElement('div');
-            div.className = 'vertex-label';
-            div.innerText = labelText;
-            labelsContainer.appendChild(div);
+            const labelText = chars[index]; const div = document.createElement('div'); div.className = 'vertex-label'; div.innerText = labelText; labelsContainer.appendChild(div);
             vertexLabels.push({ element: div, localPos: localPos.clone(), mesh: mesh });
         });
     }
@@ -484,224 +477,136 @@
         if (vertexLabels.length === 0) return;
         const isVisible = document.getElementById('labels-visible-check').checked;
         if (!isVisible) { vertexLabels.forEach(l => l.element.style.display = 'none'); return; }
-        const widthHalf = window.innerWidth / 2;
-        const heightHalf = window.innerHeight / 2;
+        const widthHalf = window.innerWidth / 2; const heightHalf = window.innerHeight / 2;
         vertexLabels.forEach(label => {
-            const worldPos = label.localPos.clone().applyMatrix4(label.mesh.matrixWorld);
-            const pos = worldPos.clone();
-            pos.project(camera);
+            const worldPos = label.localPos.clone().applyMatrix4(label.mesh.matrixWorld); const pos = worldPos.clone(); pos.project(camera);
             if (pos.z > 1) { label.element.style.display = 'none'; } else {
                 label.element.style.display = 'block';
-                const x = (pos.x * widthHalf) + widthHalf;
-                const y = -(pos.y * heightHalf) + heightHalf;
-                label.element.style.left = `${x}px`;
-                label.element.style.top = `${y}px`;
+                const x = (pos.x * widthHalf) + widthHalf; const y = -(pos.y * heightHalf) + heightHalf;
+                label.element.style.left = `${x}px`; label.element.style.top = `${y}px`;
             }
         });
     }
     function createSnapPoints(geometry, mesh) {
-        helperGroup.clear();
-        interactionObjects = [];
+        helperGroup.clear(); interactionObjects = [];
         const addedPoints = new Set(); 
         function addSnapSphere(pos, type) {
             const key = `${pos.x.toFixed(3)},${pos.y.toFixed(3)},${pos.z.toFixed(3)}`;
-            if (addedPoints.has(key)) return;
-            addedPoints.add(key);
-            const size = (type === 'vertex') ? 0.15 : 0.08;
-            const color = (type === 'vertex') ? 0x333333 : 0x666666;
-            const opacity = (type === 'vertex') ? 0.6 : 0.4;
-            const geo = new THREE.SphereGeometry(size, 16, 16);
-            const mat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: opacity });
-            const sphere = new THREE.Mesh(geo, mat);
-            sphere.position.copy(pos);
+            if (addedPoints.has(key)) return; addedPoints.add(key);
+            const size = (type === 'vertex') ? 0.15 : 0.08; const color = (type === 'vertex') ? 0x333333 : 0x666666; const opacity = (type === 'vertex') ? 0.6 : 0.4;
+            const geo = new THREE.SphereGeometry(size, 16, 16); const mat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: opacity });
+            const sphere = new THREE.Mesh(geo, mat); sphere.position.copy(pos);
             sphere.userData = { isSnapPoint: true, originalColor: color, hoverColor: 0xffaa00, pos: pos.clone() };
-            helperGroup.add(sphere);
-            interactionObjects.push(sphere);
+            helperGroup.add(sphere); interactionObjects.push(sphere);
         }
-        const posAttr = geometry.attributes.position;
-        for(let i=0; i<posAttr.count; i++){ addSnapSphere(new THREE.Vector3().fromBufferAttribute(posAttr, i), 'vertex'); }
-        const edgesGeo = new THREE.EdgesGeometry(geometry, 20); 
-        const edgePos = edgesGeo.attributes.position;
+        const posAttr = geometry.attributes.position; for(let i=0; i<posAttr.count; i++){ addSnapSphere(new THREE.Vector3().fromBufferAttribute(posAttr, i), 'vertex'); }
+        const edgesGeo = new THREE.EdgesGeometry(geometry, 20); const edgePos = edgesGeo.attributes.position;
         for (let i = 0; i < edgePos.count; i += 2) {
-            const start = new THREE.Vector3().fromBufferAttribute(edgePos, i);
-            const end = new THREE.Vector3().fromBufferAttribute(edgePos, i + 1);
-            addSnapSphere(start.clone().lerp(end, 0.5), 'sub');
-            addSnapSphere(start.clone().lerp(end, 1/3), 'sub');
-            addSnapSphere(start.clone().lerp(end, 2/3), 'sub');
+            const start = new THREE.Vector3().fromBufferAttribute(edgePos, i); const end = new THREE.Vector3().fromBufferAttribute(edgePos, i + 1);
+            addSnapSphere(start.clone().lerp(end, 0.5), 'sub'); addSnapSphere(start.clone().lerp(end, 1/3), 'sub'); addSnapSphere(start.clone().lerp(end, 2/3), 'sub');
         }
     }
+
     function onPointerMove(event) {
-        if (currentMode !== 'points') return;
-        if (renderer.xr.isPresenting) return; 
-        updateMouse(event);
-        raycaster.setFromCamera(mouse, camera);
+        if (currentMode !== 'points') return; if (renderer.xr.isPresenting) return; 
+        updateMouse(event); raycaster.setFromCamera(mouse, camera);
         const intersects = raycaster.intersectObjects(interactionObjects);
         if (intersects.length > 0) {
             const obj = intersects[0].object;
             if (hoveredObject !== obj) {
                 if (hoveredObject) hoveredObject.material.color.setHex(hoveredObject.userData.originalColor);
-                hoveredObject = obj;
-                hoveredObject.material.color.setHex(obj.userData.hoverColor);
-                document.body.style.cursor = 'pointer';
+                hoveredObject = obj; hoveredObject.material.color.setHex(obj.userData.hoverColor); document.body.style.cursor = 'pointer';
             }
         } else {
-            if (hoveredObject) {
-                hoveredObject.material.color.setHex(hoveredObject.userData.originalColor);
-                hoveredObject = null;
-                document.body.style.cursor = 'default';
-            }
+            if (hoveredObject) { hoveredObject.material.color.setHex(hoveredObject.userData.originalColor); hoveredObject = null; document.body.style.cursor = 'default'; }
         }
     }
     if (isWebXRAvailable) {
         const controller = renderer.xr.getController(0);
         controller.addEventListener('select', function() {
-            if (reticle.visible) {
-                reticle.matrix.decompose(contentGroup.position, contentGroup.quaternion, contentGroup.scale);
-                contentGroup.scale.set(0.05, 0.05, 0.05); 
-            }
-        });
-        scene.add(controller);
+            if (reticle.visible) { reticle.matrix.decompose(contentGroup.position, contentGroup.quaternion, contentGroup.scale); contentGroup.scale.set(0.05, 0.05, 0.05); }
+        }); scene.add(controller);
     }
     function onPointerDown(event) {
-        if (!renderer.xr.isPresenting && currentMode === 'points') {
-            if (!hoveredObject) return; 
-            addSelectedPoint(hoveredObject.userData.pos);
-        }
+        if (!renderer.xr.isPresenting && currentMode === 'points') { if (!hoveredObject) return; addSelectedPoint(hoveredObject.userData.pos); }
     }
     function updateMouse(event) {
         const rect = renderer.domElement.getBoundingClientRect();
-        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1; mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     }
     function addSelectedPoint(pos) {
         selectedPoints.push(pos.clone());
-        const markerGeo = new THREE.SphereGeometry(0.18, 16, 16); 
-        const markerMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-        const marker = new THREE.Mesh(markerGeo, markerMat);
-        marker.position.copy(pos);
-        contentGroup.add(marker); 
-        pointMarkers.push(marker);
-        updatePointCountUI();
-        if (selectedPoints.length >= 3) alignCutterToPoints();
+        const markerGeo = new THREE.SphereGeometry(0.18, 16, 16); const markerMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const marker = new THREE.Mesh(markerGeo, markerMat); marker.position.copy(pos); contentGroup.add(marker); pointMarkers.push(marker);
+        updatePointCountUI(); if (selectedPoints.length >= 3) alignCutterToPoints();
     }
-    function clearPoints() {
-        selectedPoints = [];
-        pointMarkers.forEach(m => contentGroup.remove(m));
-        pointMarkers = [];
-        updatePointCountUI();
-    }
-    function updatePointCountUI() {
-        const el = document.getElementById('points-count-display');
-        el.innerText = `選択数: ${selectedPoints.length}点`;
-        el.style.color = selectedPoints.length >= 3 ? '#28a745' : '#007bff';
-    }
+    function clearPoints() { selectedPoints = []; pointMarkers.forEach(m => contentGroup.remove(m)); pointMarkers = []; updatePointCountUI(); }
+    function updatePointCountUI() { const el = document.getElementById('points-count-display'); el.innerText = `選択数: ${selectedPoints.length}点`; el.style.color = selectedPoints.length >= 3 ? '#28a745' : '#007bff'; }
     function alignCutterToPoints() {
         if (selectedPoints.length < 3) return;
-        const p1 = selectedPoints[0];
-        const p2 = selectedPoints[1];
-        const p3 = selectedPoints[2];
-        const plane = new THREE.Plane();
-        plane.setFromCoplanarPoints(p1, p2, p3);
+        const p1 = selectedPoints[0]; const p2 = selectedPoints[1]; const p3 = selectedPoints[2];
+        const plane = new THREE.Plane(); plane.setFromCoplanarPoints(p1, p2, p3);
         const coplanarPoint = plane.normal.clone().multiplyScalar(-plane.constant);
         cutterGroup.position.copy(coplanarPoint);
-        const defaultNormal = new THREE.Vector3(0, 1, 0);
-        const targetNormal = plane.normal.clone();
-        const quaternion = new THREE.Quaternion();
-        quaternion.setFromUnitVectors(defaultNormal, targetNormal);
-        cutterGroup.setRotationFromQuaternion(quaternion);
-        cutterGroup.updateMatrixWorld();
+        const defaultNormal = new THREE.Vector3(0, 1, 0); const targetNormal = plane.normal.clone();
+        const quaternion = new THREE.Quaternion(); quaternion.setFromUnitVectors(defaultNormal, targetNormal);
+        cutterGroup.setRotationFromQuaternion(quaternion); cutterGroup.updateMatrixWorld();
     }
     function updateCutterTransform() {
         if (currentMode !== 'slider') return; 
-        const y = parseFloat(document.getElementById('cut-y').value);
-        const rx = parseFloat(document.getElementById('cut-rx').value);
-        const rz = parseFloat(document.getElementById('cut-rz').value);
-        cutterGroup.position.set(0, y, 0);
-        cutterGroup.rotation.set(THREE.MathUtils.degToRad(rx), 0, THREE.MathUtils.degToRad(rz));
-        document.getElementById('val-y').innerText = y.toFixed(2);
-        document.getElementById('val-rx').innerText = rx + "°";
-        document.getElementById('val-rz').innerText = rz + "°";
+        const y = parseFloat(document.getElementById('cut-y').value); const rx = parseFloat(document.getElementById('cut-rx').value); const rz = parseFloat(document.getElementById('cut-rz').value);
+        cutterGroup.position.set(0, y, 0); cutterGroup.rotation.set(THREE.MathUtils.degToRad(rx), 0, THREE.MathUtils.degToRad(rz));
+        document.getElementById('val-y').innerText = y.toFixed(2); document.getElementById('val-rx').innerText = rx + "°"; document.getElementById('val-rz').innerText = rz + "°";
     }
     function performCut(inverse) {
         if (!currentShapeBrush) return;
-        const historyGeometry = currentShapeBrush.geometry.clone();
-        historyStack.push({ geo: historyGeometry });
+        const historyGeometry = currentShapeBrush.geometry.clone(); historyStack.push({ geo: historyGeometry });
         try {
-            invisibleCutterBrush.updateMatrixWorld();
-            invisibleCutterBrush.scale.y = inverse ? -1 : 1;
-            invisibleCutterBrush.updateMatrixWorld();
+            invisibleCutterBrush.updateMatrixWorld(); invisibleCutterBrush.scale.y = inverse ? -1 : 1; invisibleCutterBrush.updateMatrixWorld();
             const resultBrush = evaluator.evaluate(currentShapeBrush, invisibleCutterBrush, SUBTRACTION);
-            contentGroup.remove(currentShapeBrush);
-            currentShapeBrush = resultBrush;
-            updateMaterial();
-            currentShapeBrush.castShadow = true;
-            currentShapeBrush.receiveShadow = true;
-            contentGroup.add(currentShapeBrush);
-            invisibleCutterBrush.scale.y = 1;
-            clearPoints();
-            helperGroup.visible = false;
-            createLabels(currentShapeBrush.geometry, currentShapeBrush);
-        } catch (err) { console.error("Cut failed:", err); }
-        updateUI();
+            contentGroup.remove(currentShapeBrush); currentShapeBrush = resultBrush;
+            updateMaterial(); currentShapeBrush.castShadow = true; currentShapeBrush.receiveShadow = true;
+            contentGroup.add(currentShapeBrush); invisibleCutterBrush.scale.y = 1; clearPoints(); helperGroup.visible = false; createLabels(currentShapeBrush.geometry, currentShapeBrush);
+        } catch (err) { console.error("Cut failed:", err); } updateUI();
     }
     function undo() {
         if (historyStack.length === 0) return;
-        const state = historyStack.pop();
-        contentGroup.remove(currentShapeBrush);
-        currentShapeBrush = new Brush(state.geo, materialStandard);
-        updateMaterial();
-        currentShapeBrush.castShadow = true;
-        currentShapeBrush.receiveShadow = true;
-        contentGroup.add(currentShapeBrush);
-        if (historyStack.length === 0) { 
-             createShape(document.getElementById('shape-select').value);
-        } else {
-             helperGroup.visible = false;
-             createLabels(currentShapeBrush.geometry, currentShapeBrush);
-        }
-        updateUI();
+        const state = historyStack.pop(); contentGroup.remove(currentShapeBrush); currentShapeBrush = new Brush(state.geo, materialStandard);
+        updateMaterial(); currentShapeBrush.castShadow = true; currentShapeBrush.receiveShadow = true; contentGroup.add(currentShapeBrush);
+        if (historyStack.length === 0) { createShape(document.getElementById('shape-select').value); } else { helperGroup.visible = false; createLabels(currentShapeBrush.geometry, currentShapeBrush); } updateUI();
     }
     function updateMaterial() {
         const isWire = document.getElementById('wireframe-check').checked;
-        if (isWire) {
-            currentShapeBrush.material = new THREE.MeshBasicMaterial({ wireframe: true, color: 0x333333 });
-        } else {
-            currentShapeBrush.material = materialStandard;
-        }
+        if (isWire) { currentShapeBrush.material = new THREE.MeshBasicMaterial({ wireframe: true, color: 0x333333 }); } else { currentShapeBrush.material = materialStandard; }
     }
-    document.getElementById('grid-visible-check').addEventListener('change', (e) => {
-        gridHelper.visible = e.target.checked;
-        axesHelper.visible = e.target.checked;
-    });
-    document.getElementById('slider-visible-check').addEventListener('change', (e) => {
-        const wrapper = document.getElementById('slider-controls-wrapper');
-        wrapper.style.display = e.target.checked ? 'block' : 'none';
-    });
-    document.getElementById('plane-visible-check').addEventListener('change', (e) => {
-        visualPlane.visible = e.target.checked;
-    });
-    document.getElementById('labels-visible-check').addEventListener('change', (e) => {
-        if(e.target.checked) { createLabels(currentShapeBrush.geometry, currentShapeBrush); } else { vertexLabels.forEach(l => l.element.style.display = 'none'); }
-    });
+
+    // イベントリスナー
+    document.getElementById('shape-select').addEventListener('change', (e) => createShape(e.target.value));
+    ['cut-y', 'cut-rx', 'cut-rz'].forEach(id => document.getElementById(id).addEventListener('input', updateCutterTransform));
+    document.getElementById('reset-slider-btn').addEventListener('click', () => { document.getElementById('cut-rx').value = 0; document.getElementById('cut-rz').value = 0; updateCutterTransform(); });
+    document.getElementById('clear-points-btn').addEventListener('click', clearPoints);
+    document.getElementById('cut-btn').addEventListener('click', () => performCut(false));
+    document.getElementById('cut-btn-inverse').addEventListener('click', () => performCut(true));
+    document.getElementById('undo-btn').addEventListener('click', undo);
+    document.getElementById('reset-btn').addEventListener('click', () => createShape(document.getElementById('shape-select').value));
+    document.getElementById('wireframe-check').addEventListener('change', updateMaterial);
+    document.getElementById('grid-visible-check').addEventListener('change', (e) => { gridHelper.visible = e.target.checked; axesHelper.visible = e.target.checked; });
+    document.getElementById('slider-visible-check').addEventListener('change', (e) => { const wrapper = document.getElementById('slider-controls-wrapper'); wrapper.style.display = e.target.checked ? 'block' : 'none'; });
+    document.getElementById('plane-visible-check').addEventListener('change', (e) => { visualPlane.visible = e.target.checked; });
+    document.getElementById('labels-visible-check').addEventListener('change', (e) => { if(e.target.checked) { createLabels(currentShapeBrush.geometry, currentShapeBrush); } else { vertexLabels.forEach(l => l.element.style.display = 'none'); } });
+
     window.switchMode = function(mode) {
         currentMode = mode;
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.mode-content').forEach(c => c.classList.remove('active'));
+        
         if(mode === 'ar') {
-            const d = document.getElementById('ar-debug-info');
-            if (d) d.innerHTML = (arMode === 'ios') ? "モード: iOS Quick Look (有効)" : (arMode === 'webxr') ? "モード: WebXR (有効)" : "AR非対応の端末です。";
-            if (arMode === 'webxr' && webXrButton) webXrButton.style.display = 'block';
-            if (arMode === 'ios') { 
-                document.getElementById('ios-ar-btn').style.display = 'block'; 
-                document.getElementById('ios-hint').style.display = 'block';
-            }
+            if(window.webXrButton) window.webXrButton.style.display = 'block';
             document.querySelector('.tab-btn:nth-child(3)').classList.add('active');
             document.getElementById('mode-ar').classList.add('active');
             helperGroup.visible = false;
         } else {
-            if (webXrButton) webXrButton.style.display = 'none'; 
-            document.getElementById('ios-ar-btn').style.display = 'none';
-            document.getElementById('ios-hint').style.display = 'none';
+            if(window.webXrButton) window.webXrButton.style.display = 'none'; 
             if(mode === 'slider') {
                 document.querySelector('.tab-btn:nth-child(1)').classList.add('active');
                 document.getElementById('mode-slider').classList.add('active');
@@ -710,17 +615,12 @@
                 document.querySelector('.tab-btn:nth-child(2)').classList.add('active');
                 document.getElementById('mode-points').classList.add('active');
                 helperGroup.visible = true;
-                if(historyStack.length === 0 && interactionObjects.length === 0) {
-                    createSnapPoints(currentShapeBrush.geometry, currentShapeBrush);
-                }
+                if(historyStack.length === 0 && interactionObjects.length === 0) { createSnapPoints(currentShapeBrush.geometry, currentShapeBrush); }
             }
         }
     };
-    function onWindowResize() {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    }
+
+    function onWindowResize() { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); }
     function render(timestamp, frame) {
         if (renderer.xr.isPresenting) {
             if (frame && hitTestSourceRequested === false) {
@@ -734,31 +634,13 @@
             if (hitTestSource && frame) {
                 const hitTestResults = frame.getHitTestResults(hitTestSource);
                 if (hitTestResults.length > 0) {
-                    const hit = hitTestResults[0];
-                    const referenceSpace = renderer.xr.getReferenceSpace();
-                    reticle.visible = true;
-                    reticle.matrix.fromArray(hit.getPose(referenceSpace).transform.matrix);
+                    const hit = hitTestResults[0]; const referenceSpace = renderer.xr.getReferenceSpace();
+                    reticle.visible = true; reticle.matrix.fromArray(hit.getPose(referenceSpace).transform.matrix);
                 } else { reticle.visible = false; }
             }
-        } else {
-            controls.update();
-            reticle.visible = false;
-        }
-        updateLabels();
-        renderer.render(scene, camera);
+        } else { controls.update(); reticle.visible = false; }
+        updateLabels(); renderer.render(scene, camera);
     }
-
-    document.getElementById('shape-select').addEventListener('change', (e) => createShape(e.target.value));
-    ['cut-y', 'cut-rx', 'cut-rz'].forEach(id => document.getElementById(id).addEventListener('input', updateCutterTransform));
-    document.getElementById('reset-slider-btn').addEventListener('click', () => {
-        document.getElementById('cut-rx').value = 0; document.getElementById('cut-rz').value = 0; updateCutterTransform();
-    });
-    document.getElementById('clear-points-btn').addEventListener('click', clearPoints);
-    document.getElementById('cut-btn').addEventListener('click', () => performCut(false));
-    document.getElementById('cut-btn-inverse').addEventListener('click', () => performCut(true));
-    document.getElementById('undo-btn').addEventListener('click', undo);
-    document.getElementById('reset-btn').addEventListener('click', () => createShape(document.getElementById('shape-select').value));
-    document.getElementById('wireframe-check').addEventListener('change', updateMaterial);
 </script>
 </body>
 </html>
