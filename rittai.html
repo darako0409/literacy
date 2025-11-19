@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>立体切断シミュレーター v10</title>
+    <title>立体切断シミュレーター v11 (修正版)</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: "Helvetica Neue", Arial, sans-serif; background-color: #f0f0f0; }
         #canvas-container { width: 100vw; height: 100vh; position: relative; }
@@ -110,7 +110,7 @@
 </div>
 
 <div id="ui-panel">
-    <h2>立体切断シミュレーター v10</h2>
+    <h2>立体切断シミュレーター v11</h2>
 
     <div class="control-group">
         <label>図形選択</label>
@@ -194,6 +194,7 @@
         "imports": {
             "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
             "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+            "three-mesh-bvh": "https://unpkg.com/three-mesh-bvh@0.7.0/build/index.module.js",
             "three-bvh-csg": "https://unpkg.com/three-bvh-csg@0.0.16/build/index.module.js"
         }
     }
@@ -206,7 +207,8 @@
     import { SUBTRACTION, Brush, Evaluator } from 'three-bvh-csg';
 
     // 読み込み完了時の処理
-    document.getElementById('loading-overlay').style.display = 'none';
+    const overlay = document.getElementById('loading-overlay');
+    if(overlay) overlay.style.display = 'none';
     document.getElementById('ui-panel').style.display = 'block';
 
     // --- 1. シーン設定 ---
@@ -322,7 +324,7 @@
             renderer.setAnimationLoop(render); 
         } catch (e) {
             console.error(e);
-            alert("初期化中にエラーが発生しました: " + e.message);
+            throw e; // エラーハンドラに渡す
         }
     }
 
