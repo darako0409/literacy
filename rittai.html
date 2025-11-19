@@ -2,19 +2,18 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>立体図形切断シミュレーター v2</title>
+    <title>立体図形切断シミュレーター v3</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: sans-serif; background-color: #f0f0f0; }
         #canvas-container { width: 100vw; height: 100vh; }
         #ui-panel {
             position: absolute; top: 10px; left: 10px;
-            width: 300px; background: rgba(255, 255, 255, 0.95);
+            width: 320px; background: rgba(255, 255, 255, 0.95);
             padding: 15px; border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             max-height: 90vh; overflow-y: auto;
             z-index: 10;
         }
-        /* エラー表示エリア */
         #error-log {
             position: absolute; bottom: 10px; left: 10px;
             background: rgba(255, 0, 0, 0.8); color: white;
@@ -23,20 +22,21 @@
             z-index: 20;
         }
         h2 { margin-top: 0; font-size: 18px; color: #333; border-bottom: 2px solid #007bff; padding-bottom: 5px;}
-        .control-group { margin-bottom: 15px; }
+        .control-group { margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .control-group:last-child { border-bottom: none; }
         label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px;}
         button {
             width: 100%; padding: 10px; margin-bottom: 5px;
             background-color: #007bff; color: white; border: none;
-            border-radius: 4px; cursor: pointer; font-size: 14px;
+            border-radius: 4px; cursor: pointer; font-size: 14px; transition: background 0.2s;
         }
         button:hover { background-color: #0056b3; }
         button.secondary { background-color: #6c757d; }
         button.secondary:hover { background-color: #545b62; }
         button:disabled { background-color: #ccc; cursor: not-allowed; }
         select { width: 100%; padding: 8px; margin-bottom: 10px; }
-        input[type=range] { width: 100%; }
-        .value-display { float: right; font-weight: normal; }
+        input[type=range] { width: 100%; cursor: pointer; }
+        .value-display { float: right; font-weight: normal; font-family: monospace; }
         .instruction { font-size: 12px; color: #666; margin-bottom: 10px; }
     </style>
 </head>
@@ -46,8 +46,8 @@
 <div id="error-log"></div>
 
 <div id="ui-panel">
-    <h2>立体図形切断シミュレーター v2</h2>
-    <p class="instruction">マウス左ドラッグで回転、右ドラッグで移動、ホイールで拡大縮小。</p>
+    <h2>立体図形切断シミュレーター v3</h2>
+    <p class="instruction">左ドラッグ: 回転 | 右ドラッグ: 移動 | ホイール: 拡大</p>
 
     <div class="control-group">
         <label>1. 図形を選ぶ</label>
@@ -62,32 +62,34 @@
     </div>
 
     <div class="control-group">
-        <label>2. 切断面を調整 (赤色)</label>
-        <label>高さ (Y) <span id="val-y" class="value-display">0</span></label>
-        <input type="range" id="cut-y" min="-2" max="2" step="0.1" value="0">
+        <label>2. 切断面を調整 (青い面)</label>
         
-        <label>回転 (X軸) <span id="val-rx" class="value-display">0°</span></label>
-        <input type="range" id="cut-rx" min="0" max="180" step="5" value="0">
+        <label>高さ (Y) <span id="val-y" class="value-display">0.0</span></label>
+        <input type="range" id="cut-y" min="-3" max="3" step="0.1" value="0">
         
-        <label>回転 (Z軸) <span id="val-rz" class="value-display">0°</span></label>
-        <input type="range" id="cut-rz" min="0" max="180" step="5" value="0">
+        <label>回転 (X軸: 手前-奥) <span id="val-rx" class="value-display">0°</span></label>
+        <input type="range" id="cut-rx" min="-180" max="180" step="5" value="0">
+        
+        <label>回転 (Z軸: 左右) <span id="val-rz" class="value-display">0°</span></label>
+        <input type="range" id="cut-rz" min="-180" max="180" step="5" value="0">
+        
+        <button id="reset-cut-btn" class="secondary" style="margin-top:5px; font-size:12px; padding:5px;">切断面を水平に戻す</button>
     </div>
 
     <div class="control-group">
         <label>3. 切断実行</label>
-        <button id="cut-btn">✂️ 選択していない側を削除</button>
-        <button id="cut-btn-inverse">✂️ 選択側を削除(逆)</button>
+        <p style="font-size:12px; margin:0 0 5px 0; color:#666;">青い面で図形をスライスします</p>
+        <button id="cut-btn">✂️ 平面の手前側を削除 (基本)</button>
+        <button id="cut-btn-inverse">✂️ 平面の奥側を削除 (逆)</button>
     </div>
 
     <div class="control-group">
-        <label>履歴操作</label>
+        <label>履歴 / 表示</label>
         <button id="undo-btn" class="secondary" disabled>↩️ ひとつ戻る (Undo)</button>
-    </div>
-
-    <div class="control-group">
-        <label>表示オプション</label>
-        <label><input type="checkbox" id="wireframe-check"> ワイヤーフレーム表示</label>
-        <label><input type="checkbox" id="ghost-check"> 切断面のガイドを隠す</label>
+        <div style="margin-top:10px;">
+            <label style="font-weight:normal;"><input type="checkbox" id="wireframe-check"> ワイヤーフレーム表示</label>
+            <label style="font-weight:normal;"><input type="checkbox" id="plane-visible-check" checked> 切断面ガイドを表示</label>
+        </div>
     </div>
 </div>
 
@@ -113,71 +115,73 @@
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
     import { SUBTRACTION, Brush, Evaluator } from 'three-bvh-csg';
 
-    // --- シーンのセットアップ ---
+    // --- シーン設定 ---
     const container = document.getElementById('canvas-container');
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf0f0f0);
+    scene.background = new THREE.Color(0xf5f5f5); // 少し明るく
 
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-    camera.position.set(5, 5, 5);
+    camera.position.set(6, 5, 8);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
 
-    // --- ライト ---
-    const ambientLight = new THREE.AmbientLight(0x404040, 1.5);
+    // --- ライト設定 ---
+    const ambientLight = new THREE.AmbientLight(0x404040, 2.0);
     scene.add(ambientLight);
-    const dirLight = new THREE.DirectionalLight(0xffffff, 2);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
     dirLight.position.set(5, 10, 7);
     dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
     scene.add(dirLight);
 
     // --- グローバル変数 ---
-    let currentShapeBrush; // 現在の図形（CSG Brush）
-    let cutterBrush;       // 切断用平面（CSG Brush）
-    let materialStandard;  // 基本のマテリアル
-    let historyStack = []; // Undo用履歴
+    let currentShapeBrush;    // 図形用ブラシ
+    let materialStandard;     // 図形のマテリアル
+    let historyStack = [];    // 履歴
+    
+    // カッター関連をグループ化して管理
+    let cutterGroup;          // 回転・移動させるグループ
+    let visualPlane;          // 見えている青い板
+    let invisibleCutterBrush; // 計算用の見えない巨大ボックス
 
     const evaluator = new Evaluator();
 
-    // --- マテリアル定義 ---
+    // マテリアル定義
     materialStandard = new THREE.MeshStandardMaterial({ 
-        color: 0x00aaff, 
-        roughness: 0.1,
+        color: 0xdddddd, // 白に近いグレー（断面が見やすいように）
+        roughness: 0.2,
         metalness: 0.1,
         side: THREE.DoubleSide,
-        flatShading: false
     });
 
-    // --- 初期化 ---
     init();
 
     function init() {
         try {
-            // グリッドヘルパー
-            const gridHelper = new THREE.GridHelper(10, 10);
+            // グリッドと軸
+            const gridHelper = new THREE.GridHelper(20, 20, 0x888888, 0xdddddd);
             scene.add(gridHelper);
-
-            // 軸ヘルパー（XYZがわかるように）
-            const axesHelper = new THREE.AxesHelper(5);
+            const axesHelper = new THREE.AxesHelper(2);
             scene.add(axesHelper);
 
-            // 切断用カッターの作成
-            createCutter();
-            
-            // 最初の図形を作成
+            // カッター（切断ガイド）のセットアップ
+            setupCutterSystem();
+
+            // 初期図形生成
             createShape('cube');
             
-            // カッター位置初期化
+            // UI更新
             updateCutterTransform();
-
             animate();
-            
+
         } catch (e) {
             console.error(e);
             document.getElementById('error-log').style.display = 'block';
@@ -185,16 +189,82 @@
         }
     }
 
+    // --- カッターシステムの構築 ---
+    function setupCutterSystem() {
+        cutterGroup = new THREE.Group();
+        scene.add(cutterGroup);
+
+        // 1. 視覚的なガイド（青い透明な平面）
+        // GeoGebra風のデザイン
+        const planeGeo = new THREE.PlaneGeometry(8, 8);
+        const planeMat = new THREE.MeshBasicMaterial({
+            color: 0x007bff, // 青
+            opacity: 0.3,
+            transparent: true,
+            side: THREE.DoubleSide,
+            depthWrite: false // 透明描画の前後関係バグ防止
+        });
+        visualPlane = new THREE.Mesh(planeGeo, planeMat);
+        // 平面はX軸周りに90度回転させて、最初は水平にする
+        visualPlane.rotation.x = -Math.PI / 2;
+        cutterGroup.add(visualPlane);
+
+        // 枠線をつける（より見やすく）
+        const edges = new THREE.EdgesGeometry(planeGeo);
+        const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x0000ff }));
+        visualPlane.add(line);
+
+
+        // 2. 計算用の見えない巨大ボックス (CSG Brush)
+        // 平面の上側（または下側）を覆う巨大なブロック
+        const boxSize = 20;
+        const boxGeo = new THREE.BoxGeometry(boxSize, boxSize, boxSize);
+        // ボックスの中心をずらす。
+        // visualPlaneが y=0 にあるとき、このボックスは y > 0 の領域を埋めるようにする。
+        // ボックスの中心は (0, boxSize/2, 0) にすれば、底面がちょうど y=0 にくる。
+        boxGeo.translate(0, boxSize / 2, 0); 
+
+        // マテリアルは何でも良い（見えないので）
+        const debugMat = new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true });
+        
+        invisibleCutterBrush = new Brush(boxGeo, debugMat);
+        
+        // 普段は見えなくていい
+        invisibleCutterBrush.visible = false; 
+        
+        // グループに追加して、visualPlaneと一緒に動くようにする
+        cutterGroup.add(invisibleCutterBrush);
+    }
+
+    function updateCutterTransform() {
+        const y = parseFloat(document.getElementById('cut-y').value);
+        const rx = parseFloat(document.getElementById('cut-rx').value);
+        const rz = parseFloat(document.getElementById('cut-rz').value);
+
+        // グループ全体を動かす
+        cutterGroup.position.set(0, y, 0);
+        cutterGroup.rotation.set(
+            THREE.MathUtils.degToRad(rx),
+            0,
+            THREE.MathUtils.degToRad(rz)
+        );
+
+        // UI表示更新
+        document.getElementById('val-y').innerText = y.toFixed(1);
+        document.getElementById('val-rx').innerText = rx + "°";
+        document.getElementById('val-rz').innerText = rz + "°";
+    }
+
     // --- 図形作成 ---
     function createShape(type) {
         let geometry;
-        // 以前のジオメトリ定義と同じ
+        // サイズ感調整
         switch(type) {
-            case 'cube': geometry = new THREE.BoxGeometry(2, 2, 2); break;
-            case 'prism': geometry = new THREE.BoxGeometry(1.5, 3, 1.5); break;
-            case 'pyramid': geometry = new THREE.ConeGeometry(1.5, 2.5, 4); break;
-            case 'tri_pyramid': geometry = new THREE.ConeGeometry(1.5, 2.5, 3); break;
-            case 'cylinder': geometry = new THREE.CylinderGeometry(1, 1, 3, 32); break;
+            case 'cube': geometry = new THREE.BoxGeometry(3, 3, 3); break;
+            case 'prism': geometry = new THREE.BoxGeometry(2, 4, 2); break;
+            case 'pyramid': geometry = new THREE.ConeGeometry(2, 3.5, 4); break;
+            case 'tri_pyramid': geometry = new THREE.ConeGeometry(2, 3.5, 3); break;
+            case 'cylinder': geometry = new THREE.CylinderGeometry(1.5, 1.5, 4, 32); break;
         }
 
         if (currentShapeBrush) scene.remove(currentShapeBrush);
@@ -208,119 +278,102 @@
         updateUI();
     }
 
-    // --- 切断用カッターの作成 ---
-    function createCutter() {
-        // 切断ガイドとなる大きなボックス
-        const geometry = new THREE.BoxGeometry(10, 10, 10);
-        geometry.translate(0, -5, 0); 
-
-        const material = new THREE.MeshBasicMaterial({
-            color: 0xff0000,
-            opacity: 0.3,
-            transparent: true,
-            side: THREE.DoubleSide,
-            depthWrite: false
-        });
-
-        cutterBrush = new Brush(geometry, material);
-        scene.add(cutterBrush);
-        
-        // UIの状態に合わせて表示/非表示
-        cutterBrush.visible = !document.getElementById('ghost-check').checked;
-    }
-
-    // --- カッターの更新 ---
-    function updateCutterTransform() {
-        const y = parseFloat(document.getElementById('cut-y').value);
-        const rx = parseFloat(document.getElementById('cut-rx').value);
-        const rz = parseFloat(document.getElementById('cut-rz').value);
-
-        cutterBrush.position.set(0, y, 0);
-        cutterBrush.rotation.set(
-            THREE.MathUtils.degToRad(rx),
-            0,
-            THREE.MathUtils.degToRad(rz)
-        );
-        cutterBrush.updateMatrixWorld();
-
-        document.getElementById('val-y').innerText = y;
-        document.getElementById('val-rx').innerText = rx + "°";
-        document.getElementById('val-rz').innerText = rz + "°";
-    }
-
     // --- 切断実行 ---
-    function performCut(inverse = false) {
+    function performCut(inverse) {
         if (!currentShapeBrush) return;
 
+        // Undo用に現在の形状を保存
         const historyGeometry = currentShapeBrush.geometry.clone();
         historyStack.push(historyGeometry);
 
-        if (inverse) {
-             cutterBrush.scale.y = -1;
-        } else {
-             cutterBrush.scale.y = 1;
-        }
-        cutterBrush.updateMatrixWorld();
-
         try {
-            const resultBrush = evaluator.evaluate(currentShapeBrush, cutterBrush, SUBTRACTION);
+            // 計算の直前に、見えないカッターのワールド座標を確定させる
+            invisibleCutterBrush.updateMatrixWorld();
+
+            // inverse（逆側削除）の場合
+            // ボックスの位置を反転させる必要がある。
+            // 通常: ボックスは平面の「上」にある -> 平面の「上」にある部分が削れる
+            // 逆: ボックスを平面の「下」に移動させたい。
             
+            // 一時的にスケールを反転させて「下側を覆うボックス」にする
+            // グループ内のローカルYスケールを-1にする
+            if (inverse) {
+                invisibleCutterBrush.scale.y = -1;
+            } else {
+                invisibleCutterBrush.scale.y = 1;
+            }
+            invisibleCutterBrush.updateMatrixWorld();
+
+            // 演算実行: 図形 - カッター
+            const resultBrush = evaluator.evaluate(currentShapeBrush, invisibleCutterBrush, SUBTRACTION);
+            
+            // 古い図形を削除して新しい図形を追加
             scene.remove(currentShapeBrush);
             currentShapeBrush = resultBrush;
             
-            // マテリアルの適用
-            updateMaterial();
-
+            updateMaterial(); // 表示設定を適用
             currentShapeBrush.castShadow = true;
             currentShapeBrush.receiveShadow = true;
             scene.add(currentShapeBrush);
 
+            // スケールを戻しておく
+            invisibleCutterBrush.scale.y = 1;
+
         } catch (err) {
             console.error("Cut failed:", err);
-            alert("切断処理に失敗しました。");
+            alert("切断計算中にエラーが発生しました。");
         }
         
-        cutterBrush.scale.y = 1;
         updateUI();
     }
 
-    // --- Undo ---
     function undo() {
         if (historyStack.length === 0) return;
-
         const prevGeometry = historyStack.pop();
         scene.remove(currentShapeBrush);
-        
         currentShapeBrush = new Brush(prevGeometry, materialStandard);
         updateMaterial();
-
         currentShapeBrush.castShadow = true;
         currentShapeBrush.receiveShadow = true;
         scene.add(currentShapeBrush);
-
         updateUI();
     }
-    
+
     function updateMaterial() {
-        const isWire = document.getElementById('wireframe-check').checked;
-        currentShapeBrush.material = isWire 
-            ? new THREE.MeshBasicMaterial({ wireframe: true, color: 0x000000 }) 
-            : materialStandard;
+        if (document.getElementById('wireframe-check').checked) {
+            currentShapeBrush.material = new THREE.MeshBasicMaterial({ 
+                wireframe: true, color: 0x333333 
+            });
+        } else {
+            // 切断面に色をつけるための工夫（CSGライブラリの機能でマテリアル分割も可能だが、今回は簡易的に）
+            currentShapeBrush.material = materialStandard;
+        }
     }
 
     // --- イベントリスナー ---
-    document.getElementById('shape-select').addEventListener('change', (e) => createShape(e.target.value));
-    document.getElementById('cut-y').addEventListener('input', updateCutterTransform);
-    document.getElementById('cut-rx').addEventListener('input', updateCutterTransform);
-    document.getElementById('cut-rz').addEventListener('input', updateCutterTransform);
+    const shapeSelect = document.getElementById('shape-select');
+    shapeSelect.addEventListener('change', (e) => createShape(e.target.value));
+
+    const inputs = ['cut-y', 'cut-rx', 'cut-rz'];
+    inputs.forEach(id => {
+        document.getElementById(id).addEventListener('input', updateCutterTransform);
+    });
+
+    document.getElementById('reset-cut-btn').addEventListener('click', () => {
+        document.getElementById('cut-y').value = 0;
+        document.getElementById('cut-rx').value = 0;
+        document.getElementById('cut-rz').value = 0;
+        updateCutterTransform();
+    });
+
     document.getElementById('cut-btn').addEventListener('click', () => performCut(false));
     document.getElementById('cut-btn-inverse').addEventListener('click', () => performCut(true));
     document.getElementById('undo-btn').addEventListener('click', undo);
-    document.getElementById('reset-btn').addEventListener('click', () => createShape(document.getElementById('shape-select').value));
+    document.getElementById('reset-btn').addEventListener('click', () => createShape(shapeSelect.value));
     
     document.getElementById('wireframe-check').addEventListener('change', updateMaterial);
-    document.getElementById('ghost-check').addEventListener('change', (e) => {
-        if(cutterBrush) cutterBrush.visible = !e.target.checked;
+    document.getElementById('plane-visible-check').addEventListener('change', (e) => {
+        visualPlane.visible = e.target.checked;
     });
 
     function updateUI() {
