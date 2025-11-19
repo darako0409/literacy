@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>立体切断シミュレーター v16 (スマホ最適化)</title>
+    <title>立体切断シミュレーター v17</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: "Helvetica Neue", Arial, sans-serif; background-color: #f0f0f0; }
-        #canvas-container { width: 100vw; height: 100vh; position: relative; touch-action: none; /* スマホでの誤操作防止 */ }
+        #canvas-container { width: 100vw; height: 100vh; position: relative; touch-action: none; }
         
-        /* 共通: 読み込み・エラー表示 */
         #loading-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: #fff; z-index: 9999; display: flex; flex-direction: column;
@@ -16,7 +15,6 @@
         }
         #error-message { color: red; margin-top: 10px; padding: 20px; text-align: center; display: none; }
 
-        /* 頂点ラベル */
         .vertex-label {
             position: absolute;
             background: rgba(255, 255, 255, 0.85);
@@ -31,52 +29,43 @@
             display: none; 
         }
 
-        /* =========================================
-           UIパネルのデザイン (PC/スマホ切り替え)
-           ========================================= */
-        
-        /* ベーススタイル */
+        /* UIパネルスタイル */
         #ui-panel {
             background: rgba(255, 255, 255, 0.95);
             padding: 15px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.15);
             z-index: 10;
             font-size: 14px;
-            display: none; /* 初期ロードまで非表示 */
-            transition: transform 0.3s ease, opacity 0.3s ease;
+            display: none;
+            transition: transform 0.3s ease;
         }
 
-        /* ▼▼ PC用スタイル (画面幅 601px以上) ▼▼ */
+        /* PC用レイアウト */
         @media (min-width: 601px) {
             #ui-panel {
                 position: absolute; top: 10px; left: 10px;
                 width: 340px; border-radius: 8px;
                 max-height: 90vh; overflow-y: auto;
             }
-            #mobile-toggle-btn { display: none; } /* PCではトグルボタン不要 */
-            #panel-close-btn { display: none; }
+            #mobile-toggle-btn { display: none; }
+            #panel-header-mobile { display: none; }
         }
 
-        /* ▼▼ スマホ用スタイル (画面幅 600px以下) ▼▼ */
+        /* スマホ用レイアウト */
         @media (max-width: 600px) {
             #ui-panel {
                 position: absolute; bottom: 0; left: 0;
                 width: 100%; 
-                border-radius: 20px 20px 0 0; /* 上だけ丸く */
-                max-height: 50vh; /* 画面の半分まで */
+                border-radius: 20px 20px 0 0;
+                max-height: 60vh;
                 overflow-y: auto;
                 box-sizing: border-box;
-                padding-bottom: 30px; /* 下部に余裕 */
-                transform: translateY(0); /* 表示状態 */
+                padding-bottom: 40px;
+                transform: translateY(0);
             }
-            
-            /* パネルが閉じている時 */
             #ui-panel.closed {
-                transform: translateY(110%); /* 画面外へスライド */
-                pointer-events: none;
+                transform: translateY(110%);
             }
-
-            /* スマホ用: パネルを開くボタン */
             #mobile-toggle-btn {
                 position: absolute; bottom: 20px; right: 20px;
                 width: 50px; height: 50px;
@@ -89,18 +78,13 @@
                 z-index: 20;
                 cursor: pointer;
             }
-
-            /* スマホ用: パネル内の「閉じる」バー */
             #panel-header-mobile {
                 display: flex; justify-content: space-between; align-items: center;
-                margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px;
-            }
-            .drag-handle {
-                width: 40px; height: 5px; background: #ccc; border-radius: 3px; margin: 0 auto;
+                margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;
             }
         }
 
-        h2 { margin-top: 0; font-size: 16px; color: #333; padding-bottom: 5px; margin-bottom: 10px;}
+        h2 { margin-top: 0; font-size: 16px; color: #333; margin-bottom: 0; }
         
         .tab-container { display: flex; margin-bottom: 15px; border-bottom: 1px solid #ddd; }
         .tab-btn {
@@ -112,7 +96,6 @@
         
         .mode-content { display: none; }
         .mode-content.active { display: block; }
-
         .control-group { margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
         .control-group:last-child { border-bottom: none; }
         
@@ -120,11 +103,9 @@
         .checkbox-label { font-weight: normal; display: flex; align-items: center; gap: 5px; margin-bottom: 5px; }
 
         button {
-            width: 100%; padding: 12px; /* スマホで押しやすいよう少し大きく */
-            margin-bottom: 8px;
+            width: 100%; padding: 12px; margin-bottom: 8px;
             background-color: #007bff; color: white; border: none;
-            border-radius: 8px; cursor: pointer; transition: background 0.2s;
-            font-size: 14px;
+            border-radius: 8px; cursor: pointer; transition: background 0.2s; font-size: 14px;
         }
         button:hover { background-color: #0056b3; }
         button.secondary { background-color: #6c757d; }
@@ -133,16 +114,12 @@
         
         #ios-ar-btn { background-color: #28a745; display: none; margin-top: 10px; }
         
-        select { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 16px; /* iOSでのズーム防止 */ }
-        input[type=range] { width: 100%; cursor: pointer; height: 30px; /* スマホで操作しやすく */ }
+        select { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 16px; }
+        input[type=range] { width: 100%; cursor: pointer; height: 30px; }
         .value-display { float: right; font-weight: normal; font-family: monospace; }
         .hint-text { font-size: 12px; color: #666; margin-top: -2px; margin-bottom: 8px; line-height: 1.4; }
-        
-        .debug-info {
-            font-size: 12px; background: #e2e3e5; padding: 10px; border-radius: 5px; color: #383d41; margin-bottom: 10px;
-        }
+        .debug-info { font-size: 12px; background: #e2e3e5; padding: 10px; border-radius: 5px; color: #383d41; margin-bottom: 10px; }
     </style>
-    
     <script>
         window.addEventListener('error', function(e) {
             const overlay = document.getElementById('loading-overlay');
@@ -151,7 +128,7 @@
                 if (e.message && (e.message.includes('xr') || e.message.includes('XR'))) return;
                 overlay.style.display = 'flex';
                 msg.style.display = 'block';
-                msg.innerHTML = '<strong>エラーが発生しました:</strong><br>' + e.message + '<br><br>ページを再読み込みしてみてください。';
+                msg.innerHTML = '<strong>エラーが発生しました:</strong><br>' + e.message + '<br><br>ページを再読み込みしてください。';
             }
         });
     </script>
@@ -170,9 +147,9 @@
 <button id="mobile-toggle-btn" onclick="togglePanel()">⚙️</button>
 
 <div id="ui-panel">
-    <div id="panel-header-mobile" style="display:none;">
-        <span>設定・操作</span>
-        <button onclick="togglePanel()" style="width:auto; padding:5px 10px; margin:0; background:#ddd; color:#333;">▼ 閉じる</button>
+    <div id="panel-header-mobile">
+        <h2>設定・操作</h2>
+        <button onclick="togglePanel()" style="width:auto; padding:6px 12px; margin:0; background:#ddd; color:#333;">▼ 閉じる</button>
     </div>
 
     <div class="control-group">
@@ -184,7 +161,7 @@
             <option value="tri_pyramid">正三角錐</option>
             <option value="cylinder">円柱</option>
         </select>
-        <button id="reset-btn" class="secondary" style="margin-top:5px; padding:6px;">図形をリセット</button>
+        <button id="reset-btn" class="secondary" style="margin-top:5px; padding:8px;">図形をリセット</button>
     </div>
 
     <div class="tab-container">
@@ -194,17 +171,15 @@
     </div>
 
     <div id="mode-slider" class="mode-content active">
-        <div id="slider-controls-wrapper">
-            <div class="control-group">
-                <label>切断面の調整</label>
-                <label>高さ (Y) <span id="val-y" class="value-display">0.00</span></label>
-                <input type="range" id="cut-y" min="-3" max="3" step="0.01" value="0">
-                <label>回転 (X:手前奥) <span id="val-rx" class="value-display">0°</span></label>
-                <input type="range" id="cut-rx" min="-180" max="180" step="1" value="0">
-                <label>回転 (Z:左右) <span id="val-rz" class="value-display">0°</span></label>
-                <input type="range" id="cut-rz" min="-180" max="180" step="1" value="0">
-                <button class="secondary" id="reset-slider-btn" style="font-size:12px; padding:5px; margin-top:5px;">角度を水平に戻す</button>
-            </div>
+        <div class="control-group">
+            <label>切断面の調整</label>
+            <label>高さ (Y) <span id="val-y" class="value-display">0.00</span></label>
+            <input type="range" id="cut-y" min="-3" max="3" step="0.01" value="0">
+            <label>回転 (X:手前奥) <span id="val-rx" class="value-display">0°</span></label>
+            <input type="range" id="cut-rx" min="-180" max="180" step="1" value="0">
+            <label>回転 (Z:左右) <span id="val-rz" class="value-display">0°</span></label>
+            <input type="range" id="cut-rz" min="-180" max="180" step="1" value="0">
+            <button class="secondary" id="reset-slider-btn" style="font-size:12px; padding:8px; margin-top:5px;">角度を水平に戻す</button>
         </div>
     </div>
 
@@ -268,15 +243,27 @@
     import { USDZExporter } from 'three/addons/exporters/USDZExporter.js';
     import { SUBTRACTION, Brush, Evaluator } from 'three-bvh-csg';
 
-    // UI初期化
     const overlay = document.getElementById('loading-overlay');
     if(overlay) overlay.style.display = 'none';
     document.getElementById('ui-panel').style.display = 'block';
-    
-    // スマホかどうかの簡易判定でヘッダーを表示
+
+    // スマホ用初期化
     if (window.innerWidth <= 600) {
-        document.getElementById('panel-header-mobile').style.display = 'flex';
+        document.getElementById('ui-panel').classList.add('closed');
+    } else {
+        document.getElementById('mobile-toggle-btn').style.display = 'none';
     }
+    window.togglePanel = function() {
+        const panel = document.getElementById('ui-panel');
+        const btn = document.getElementById('mobile-toggle-btn');
+        if (panel.classList.contains('closed')) {
+            panel.classList.remove('closed');
+            btn.style.display = 'none';
+        } else {
+            panel.classList.add('closed');
+            btn.style.display = 'flex';
+        }
+    };
 
     // --- 環境判定 ---
     let isWebXRAvailable = ('xr' in navigator);
@@ -293,7 +280,7 @@
             webxrInst.style.display = 'block';
             return 'webxr';
         } else if (isIos) {
-            html += "端末: iPhone/iPad (AR Quick Look)";
+            html += "端末: iOS (AR Quick Look)";
             iosBtn.style.display = 'block';
             iosHint.style.display = 'block';
             return 'ios';
@@ -319,7 +306,7 @@
     if (isWebXRAvailable) renderer.xr.enabled = true; 
     container.appendChild(renderer.domElement);
 
-    // WebXR Button (Android)
+    // WebXR Button
     if (arMode === 'webxr') {
         try {
             const webXrButton = ARButton.createButton(renderer, { 
@@ -328,7 +315,6 @@
             });
             document.body.appendChild(webXrButton);
             webXrButton.style.display = 'none';
-            // グローバルアクセス用に保存
             window.webXrButton = webXrButton;
         } catch(e) {}
     }
@@ -398,29 +384,6 @@
         } catch (e) { console.error(e); }
     }
 
-    // --- パネル開閉ロジック (Global Scope) ---
-    window.togglePanel = function() {
-        const panel = document.getElementById('ui-panel');
-        const btn = document.getElementById('mobile-toggle-btn');
-        
-        if (panel.classList.contains('closed')) {
-            // 開く
-            panel.classList.remove('closed');
-            btn.style.display = 'none'; // パネルが開いたらボタンは消す
-        } else {
-            // 閉じる
-            panel.classList.add('closed');
-            btn.style.display = 'flex'; // パネルが閉じたらボタンを出す
-        }
-    };
-
-    // 初期状態：スマホなら閉じておく
-    if (window.innerWidth <= 600) {
-        document.getElementById('ui-panel').classList.add('closed');
-    } else {
-        document.getElementById('mobile-toggle-btn').style.display = 'none';
-    }
-
     function onSessionStart() { contentGroup.scale.set(0.05, 0.05, 0.05); scene.background = null; }
     function onSessionEnd() { contentGroup.scale.set(1, 1, 1); contentGroup.position.set(0, 0, 0); contentGroup.rotation.set(0, 0, 0); scene.background = new THREE.Color(0xfafafa); reticle.visible = false; hitTestSource = null; hitTestSourceRequested = false; }
 
@@ -456,6 +419,7 @@
     }
 
     function updateUI() { const undoBtn = document.getElementById('undo-btn'); if (undoBtn) undoBtn.disabled = (historyStack.length === 0); }
+
     function createLabels(geometry, mesh) {
         vertexLabels.forEach(l => l.element.remove()); vertexLabels = [];
         if (!document.getElementById('labels-visible-check').checked) return;
@@ -580,7 +544,6 @@
         if (isWire) { currentShapeBrush.material = new THREE.MeshBasicMaterial({ wireframe: true, color: 0x333333 }); } else { currentShapeBrush.material = materialStandard; }
     }
 
-    // イベントリスナー
     document.getElementById('shape-select').addEventListener('change', (e) => createShape(e.target.value));
     ['cut-y', 'cut-rx', 'cut-rz'].forEach(id => document.getElementById(id).addEventListener('input', updateCutterTransform));
     document.getElementById('reset-slider-btn').addEventListener('click', () => { document.getElementById('cut-rx').value = 0; document.getElementById('cut-rz').value = 0; updateCutterTransform(); });
@@ -591,7 +554,6 @@
     document.getElementById('reset-btn').addEventListener('click', () => createShape(document.getElementById('shape-select').value));
     document.getElementById('wireframe-check').addEventListener('change', updateMaterial);
     document.getElementById('grid-visible-check').addEventListener('change', (e) => { gridHelper.visible = e.target.checked; axesHelper.visible = e.target.checked; });
-    document.getElementById('slider-visible-check').addEventListener('change', (e) => { const wrapper = document.getElementById('slider-controls-wrapper'); wrapper.style.display = e.target.checked ? 'block' : 'none'; });
     document.getElementById('plane-visible-check').addEventListener('change', (e) => { visualPlane.visible = e.target.checked; });
     document.getElementById('labels-visible-check').addEventListener('change', (e) => { if(e.target.checked) { createLabels(currentShapeBrush.geometry, currentShapeBrush); } else { vertexLabels.forEach(l => l.element.style.display = 'none'); } });
 
