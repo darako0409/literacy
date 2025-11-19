@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>立体切断シミュレーター v12 (修正完了版)</title>
+    <title>立体切断シミュレーター v14 (診断機能付)</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: "Helvetica Neue", Arial, sans-serif; background-color: #f0f0f0; }
         #canvas-container { width: 100vw; height: 100vh; position: relative; }
         
-        /* 読み込み中・エラー表示用 */
         #loading-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: #fff; z-index: 9999; display: flex; flex-direction: column;
@@ -40,7 +39,7 @@
             max-height: 85vh; overflow-y: auto;
             z-index: 10;
             font-size: 14px;
-            display: none; /* 読み込み完了まで隠す */
+            display: none; 
         }
         @media (max-width: 600px) {
             #ui-panel { width: 90%; left: 5%; top: 10px; max-height: 60vh; }
@@ -48,7 +47,6 @@
 
         h2 { margin-top: 0; font-size: 18px; color: #333; border-bottom: 2px solid #007bff; padding-bottom: 8px; margin-bottom: 15px;}
         
-        /* タブ */
         .tab-container { display: flex; margin-bottom: 15px; border-bottom: 1px solid #ddd; }
         .tab-btn {
             flex: 1; padding: 8px 4px; text-align: center; cursor: pointer;
@@ -82,7 +80,13 @@
         .value-display { float: right; font-weight: normal; font-family: monospace; }
         .hint-text { font-size: 12px; color: #666; margin-top: -2px; margin-bottom: 8px; line-height: 1.4; }
         
-        /* ARボタンのスタイル制御（初期は非表示） */
+        /* 診断結果表示用スタイル */
+        .debug-info {
+            font-size: 12px; background: #fff3cd; padding: 10px; border-radius: 5px; border: 1px solid #ffeeba; color: #856404; margin-bottom: 10px;
+        }
+        .debug-ok { color: green; font-weight: bold; }
+        .debug-ng { color: red; font-weight: bold; }
+        
         #ar-button-container { display: none; } 
     </style>
     
@@ -91,9 +95,7 @@
             const overlay = document.getElementById('loading-overlay');
             const msg = document.getElementById('error-message');
             if(overlay && msg) {
-                // 特定の警告は無視する（AR非対応環境での警告など）
-                if (e.message.includes('xr') || e.message.includes('XR')) return;
-                
+                if (e.message && (e.message.includes('xr') || e.message.includes('XR'))) return;
                 overlay.style.display = 'flex';
                 msg.style.display = 'block';
                 msg.innerHTML = '<strong>エラーが発生しました:</strong><br>' + e.message + '<br><br>ページを再読み込みしてみてください。';
@@ -113,7 +115,7 @@
 </div>
 
 <div id="ui-panel">
-    <h2>立体切断シミュレーター v12</h2>
+    <h2>立体切断シミュレーター v14</h2>
 
     <div class="control-group">
         <label>図形選択</label>
@@ -162,12 +164,18 @@
     <div id="mode-ar" class="mode-content">
         <div class="control-group">
             <label>AR（拡張現実）モード</label>
-            <p class="hint-text">
-                1. 下の <b>[START AR]</b> を押す<br>
-                2. スマホカメラで床や机を映す<br>
-                3. 白いリングが出たら画面をタップ<br>
-            </p>
-            <p style="font-size:12px; color:#d63384;">※カメラ付きの対応デバイスが必要です。</p>
+            
+            <div id="ar-debug-info" class="debug-info">
+                診断中...
+            </div>
+
+            <div id="ar-instructions" style="display:none;">
+                <p class="hint-text">
+                    1. 下の <b>[START AR]</b> を押す<br>
+                    2. スマホカメラで床や机を映す<br>
+                    3. 白いリングが出たら画面をタップ<br>
+                </p>
+            </div>
         </div>
     </div>
 
@@ -209,12 +217,66 @@
     import { ARButton } from 'three/addons/webxr/ARButton.js';
     import { SUBTRACTION, Brush, Evaluator } from 'three-bvh-csg';
 
-    // 読み込み完了時の処理
     const overlay = document.getElementById('loading-overlay');
     if(overlay) overlay.style.display = 'none';
     document.getElementById('ui-panel').style.display = 'block';
 
-    // --- 1. シーン設定 ---
+    // --- AR環境診断ロジック ---
+    function checkAREnvironment() {
+        const debugEl = document.getElementById('ar-debug-info');
+        const instructionsEl = document.getElementById('ar-instructions');
+        
+        let isHttps = (location.protocol === 'https:');
+        // localhostは特別に許可
+        if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') isHttps = true;
+
+        let isWebXRAvailable = ('xr' in navigator);
+        let userAgent = navigator.userAgent;
+        let isIphone = /iPhone|iPad|iPod/i.test(userAgent);
+        let isAndroid = /Android/i.test(userAgent);
+
+        let html = "";
+        
+        // 1. HTTPSチェック
+        html += `接続: ${isHttps ? '<span class="debug-ok">OK (HTTPS)</span>' : '<span class="debug-ng">NG (HTTPです)</span>'}<br>`;
+        if (!isHttps) {
+            html += "※ARにはhttps接続(GitHub Pages等)が必須です。<br>";
+        }
+
+        // 2. WebXR APIチェック
+        html += `WebXR対応: ${isWebXRAvailable ? '<span class="debug-ok">OK</span>' : '<span class="debug-ng">未対応</span>'}<br>`;
+
+        // 3. 端末判定とアドバイス
+        if (isIphone) {
+            html += `端末: iPhone/iPad detected.<br>`;
+            if (!isWebXRAvailable) {
+                 html += `<div style="margin-top:5px; color:red; font-weight:bold; border:1px solid red; padding:5px; background:#fff;">
+                    【重要】iPhoneのSafariはWebXRに未対応です。<br>
+                    AppStoreから無料の<br>
+                    「<a href="https://apps.apple.com/jp/app/webxr-viewer/id1295996856" target="_blank">WebXR Viewer</a>」<br>
+                    というブラウザアプリをインストールし、そこでこのページを開いてください。
+                 </div>`;
+            }
+        } else if (isAndroid) {
+             html += `端末: Android detected.<br>`;
+             if (!isWebXRAvailable) {
+                 html += "Chromeブラウザを使用してください。また「Google Play 開発者サービス(AR)」のインストールが必要です。<br>";
+             }
+        } else {
+             html += `端末: PC (または不明)<br>PCではARは動作しません。<br>`;
+        }
+
+        debugEl.innerHTML = html;
+
+        // ボタン表示判定
+        if (isHttps && isWebXRAvailable) {
+            instructionsEl.style.display = 'block';
+            return true; // AR可能
+        }
+        return false; // AR不可
+    }
+    // ------------------------
+
     const container = document.getElementById('canvas-container');
     const labelsContainer = document.getElementById('labels-container');
     const scene = new THREE.Scene();
@@ -227,28 +289,28 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.xr.enabled = true; 
+    if ('xr' in navigator) renderer.xr.enabled = true; 
     container.appendChild(renderer.domElement);
 
-    // ARボタン作成 (カメラがないPCでもエラーにならないようtry-catchで囲むか、ARButtonの内部処理に任せる)
-    // ARButtonはWebXR非対応環境ではボタンを生成しないだけなので安全です。
-    let arButton;
-    try {
-        arButton = ARButton.createButton(renderer, { 
-            requiredFeatures: ['hit-test'],
-            optionalFeatures: ['dom-overlay'],
-            domOverlay: { root: document.getElementById('ui-panel') } 
-        });
-        document.body.appendChild(arButton);
-        arButton.style.display = 'none'; // 初期は隠す
-    } catch(e) {
-        console.log("WebXR not supported or error creating AR button", e);
+    // ARボタン作成 (エラー抑制)
+    let arButton = null;
+    const canRunAR = checkAREnvironment(); // 診断実行
+
+    if (canRunAR) {
+        try {
+            arButton = ARButton.createButton(renderer, { 
+                requiredFeatures: ['hit-test'],
+                optionalFeatures: ['dom-overlay'],
+                domOverlay: { root: document.getElementById('ui-panel') } 
+            });
+            document.body.appendChild(arButton);
+            arButton.style.display = 'none'; 
+        } catch(e) { console.log("AR Button Error", e); }
     }
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
 
-    // ライト
     const ambientLight = new THREE.AmbientLight(0xffffff, 2.5); 
     scene.add(ambientLight);
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
@@ -259,14 +321,12 @@
     fillLight.position.set(-5, 0, -5);
     scene.add(fillLight);
 
-    // --- グローバル変数 ---
     let contentGroup = new THREE.Group();
     scene.add(contentGroup);
 
     let currentShapeBrush;    
     let materialStandard;     
     let historyStack = [];    
-    
     let cutterGroup;
     let visualPlane;
     let invisibleCutterBrush;
@@ -286,21 +346,14 @@
     let gridHelper, axesHelper;
     const evaluator = new Evaluator();
 
-    // AR用ヒットテスト
     let reticle;
     let hitTestSource = null;
     let hitTestSourceRequested = false;
 
     materialStandard = new THREE.MeshStandardMaterial({ 
-        color: 0x66ccff, 
-        roughness: 0.5,
-        metalness: 0.0,
-        transparent: true,
-        opacity: 0.9, 
-        side: THREE.DoubleSide,
+        color: 0x66ccff, roughness: 0.5, metalness: 0.0, transparent: true, opacity: 0.9, side: THREE.DoubleSide,
     });
 
-    // --- 初期化 ---
     init();
 
     function init() {
@@ -314,7 +367,6 @@
             createShape('cube');
             updateCutterTransform();
 
-            // レティクル
             reticle = new THREE.Mesh(
                 new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2),
                 new THREE.MeshBasicMaterial({ color: 0xffffff })
@@ -327,13 +379,13 @@
             renderer.domElement.addEventListener('pointermove', onPointerMove); 
             renderer.domElement.addEventListener('pointerdown', onPointerDown); 
             
-            renderer.xr.addEventListener('sessionstart', onSessionStart);
-            renderer.xr.addEventListener('sessionend', onSessionEnd);
-
+            if ('xr' in navigator) {
+                renderer.xr.addEventListener('sessionstart', onSessionStart);
+                renderer.xr.addEventListener('sessionend', onSessionEnd);
+            }
             renderer.setAnimationLoop(render); 
         } catch (e) {
             console.error(e);
-            throw e; 
         }
     }
 
@@ -355,19 +407,16 @@
     function setupCutterSystem() {
         cutterGroup = new THREE.Group();
         contentGroup.add(cutterGroup); 
-
         const planeGeo = new THREE.PlaneGeometry(12, 12);
         const planeMat = new THREE.MeshBasicMaterial({
             color: 0x007bff, opacity: 0.2, transparent: true, side: THREE.DoubleSide, depthWrite: false
         });
         visualPlane = new THREE.Mesh(planeGeo, planeMat);
         visualPlane.rotation.x = -Math.PI / 2;
-        
         const edges = new THREE.EdgesGeometry(planeGeo);
         const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x0000ff, opacity: 0.3, transparent:true }));
         visualPlane.add(line);
         cutterGroup.add(visualPlane);
-
         const boxSize = 30;
         const boxGeo = new THREE.BoxGeometry(boxSize, boxSize, boxSize);
         boxGeo.translate(0, boxSize / 2, 0); 
@@ -384,28 +433,21 @@
             case 'tri_pyramid': geometry = new THREE.ConeGeometry(2, 3.5, 3); break;
             case 'cylinder': geometry = new THREE.CylinderGeometry(1.5, 1.5, 4, 32); break;
         }
-
         if (currentShapeBrush) contentGroup.remove(currentShapeBrush);
-        
         currentShapeBrush = new Brush(geometry, materialStandard);
         currentShapeBrush.castShadow = true;
         currentShapeBrush.receiveShadow = true;
         contentGroup.add(currentShapeBrush);
-        
         historyStack = [];
         createSnapPoints(geometry, currentShapeBrush);
         createLabels(geometry, currentShapeBrush); 
-        updateUI(); // ここでエラーが出ていました
+        updateUI(); 
     }
 
-    // --- 修正: 復活させた updateUI 関数 ---
     function updateUI() {
         const undoBtn = document.getElementById('undo-btn');
-        if (undoBtn) {
-            undoBtn.disabled = (historyStack.length === 0);
-        }
+        if (undoBtn) undoBtn.disabled = (historyStack.length === 0);
     }
-    // ------------------------------------
 
     function createLabels(geometry, mesh) {
         vertexLabels.forEach(l => l.element.remove());
@@ -448,12 +490,10 @@
         }
         const widthHalf = window.innerWidth / 2;
         const heightHalf = window.innerHeight / 2;
-
         vertexLabels.forEach(label => {
             const worldPos = label.localPos.clone().applyMatrix4(label.mesh.matrixWorld);
             const pos = worldPos.clone();
             pos.project(camera);
-
             if (pos.z > 1) {
                 label.element.style.display = 'none';
             } else {
@@ -523,15 +563,16 @@
         }
     }
 
-    function onSelect() {
-        if (reticle.visible) {
-            reticle.matrix.decompose(contentGroup.position, contentGroup.quaternion, contentGroup.scale);
-            contentGroup.scale.set(0.05, 0.05, 0.05); 
-        }
+    if ('xr' in navigator) {
+        const controller = renderer.xr.getController(0);
+        controller.addEventListener('select', function() {
+            if (reticle.visible) {
+                reticle.matrix.decompose(contentGroup.position, contentGroup.quaternion, contentGroup.scale);
+                contentGroup.scale.set(0.05, 0.05, 0.05); 
+            }
+        });
+        scene.add(controller);
     }
-    const controller = renderer.xr.getController(0);
-    controller.addEventListener('select', onSelect);
-    scene.add(controller);
 
     function onPointerDown(event) {
         if (!renderer.xr.isPresenting && currentMode === 'points') {
@@ -677,13 +718,11 @@
         }
     });
 
-    // モード切替処理
     window.switchMode = function(mode) {
         currentMode = mode;
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.mode-content').forEach(c => c.classList.remove('active'));
         
-        // ARボタンの表示制御
         if(mode === 'ar') {
             if(arButton) arButton.style.display = 'block';
             document.querySelector('.tab-btn:nth-child(3)').classList.add('active');
