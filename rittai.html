@@ -3,11 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>立体切断シミュレーター v9 (タブ構成版)</title>
+    <title>立体切断シミュレーター v10</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: "Helvetica Neue", Arial, sans-serif; background-color: #f0f0f0; }
         #canvas-container { width: 100vw; height: 100vh; position: relative; }
         
+        /* 読み込み中・エラー表示用 */
+        #loading-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #fff; z-index: 9999; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; color: #333;
+        }
+        #error-message { color: red; margin-top: 10px; padding: 20px; text-align: center; display: none; }
+
         /* 頂点ラベル */
         .vertex-label {
             position: absolute;
@@ -32,6 +40,7 @@
             max-height: 85vh; overflow-y: auto;
             z-index: 10;
             font-size: 14px;
+            display: none; /* 読み込み完了まで隠す */
         }
         @media (max-width: 600px) {
             #ui-panel { width: 90%; left: 5%; top: 10px; max-height: 60vh; }
@@ -73,27 +82,35 @@
         .value-display { float: right; font-weight: normal; font-family: monospace; }
         .hint-text { font-size: 12px; color: #666; margin-top: -2px; margin-bottom: 8px; line-height: 1.4; }
         
-        /* ARボタンのスタイル上書き（初期は非表示） */
+        /* ARボタンのスタイル制御 */
         #ar-button-container { display: none; } 
-
-        #error-log {
-            position: absolute; bottom: 10px; left: 10px;
-            background: rgba(200, 0, 0, 0.9); color: white;
-            padding: 10px; border-radius: 5px; font-size: 12px;
-            max-width: 400px; display: none; pointer-events: none; z-index: 999;
-        }
     </style>
+    
+    <script>
+        window.addEventListener('error', function(e) {
+            const overlay = document.getElementById('loading-overlay');
+            const msg = document.getElementById('error-message');
+            if(overlay && msg) {
+                overlay.style.display = 'flex';
+                msg.style.display = 'block';
+                msg.innerHTML = '<strong>エラーが発生しました:</strong><br>' + e.message + '<br><br>ページを再読み込みしてみてください。';
+            }
+        });
+    </script>
 </head>
 <body>
+
+<div id="loading-overlay">
+    <div id="status-text">システム読み込み中...</div>
+    <div id="error-message"></div>
+</div>
 
 <div id="canvas-container">
     <div id="labels-container"></div>
 </div>
 
-<div id="error-log"></div>
-
 <div id="ui-panel">
-    <h2>立体切断シミュレーター v9</h2>
+    <h2>立体切断シミュレーター v10</h2>
 
     <div class="control-group">
         <label>図形選択</label>
@@ -143,12 +160,11 @@
         <div class="control-group">
             <label>AR（拡張現実）モード</label>
             <p class="hint-text">
-                作成した図形を、スマホのカメラ越しに机の上などに表示できます。<br><br>
-                1. 下の <b>[START AR]</b> ボタンを押す<br>
-                2. カメラで床や机を映す<br>
-                3. 白いリングが出たら画面をタップ
+                1. 下の <b>[START AR]</b> を押す<br>
+                2. スマホカメラで床や机を映す<br>
+                3. 白いリングが出たら画面をタップ<br>
             </p>
-            <p style="font-size:12px; color:#d63384;">※この機能はAR対応スマホでのみ動作します。</p>
+            <p style="font-size:12px; color:#d63384;">※対応スマホでのみ動作します。</p>
         </div>
     </div>
 
@@ -176,25 +192,22 @@
 <script type="importmap">
     {
         "imports": {
-            "three": "https://esm.sh/three@0.160.0",
-            "three/addons/": "https://esm.sh/three@0.160.0/examples/jsm/",
-            "three-bvh-csg": "https://esm.sh/three-bvh-csg@0.0.16?deps=three@0.160.0"
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+            "three-bvh-csg": "https://unpkg.com/three-bvh-csg@0.0.16/build/index.module.js"
         }
     }
 </script>
 
 <script type="module">
-    // エラー処理
-    window.onerror = function(message, source, lineno, colno, error) {
-        const el = document.getElementById('error-log');
-        el.style.display = 'block';
-        el.innerHTML += `Error: ${message}<br><small>${source}:${lineno}</small><br>`;
-    };
-
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
     import { ARButton } from 'three/addons/webxr/ARButton.js';
     import { SUBTRACTION, Brush, Evaluator } from 'three-bvh-csg';
+
+    // 読み込み完了時の処理
+    document.getElementById('loading-overlay').style.display = 'none';
+    document.getElementById('ui-panel').style.display = 'block';
 
     // --- 1. シーン設定 ---
     const container = document.getElementById('canvas-container');
@@ -212,15 +225,14 @@
     renderer.xr.enabled = true; 
     container.appendChild(renderer.domElement);
 
-    // ARボタンの作成 (初期状態はCSSで非表示にするため、スタイル制御用の変数に入れる)
+    // ARボタン作成
     const arButton = ARButton.createButton(renderer, { 
         requiredFeatures: ['hit-test'],
         optionalFeatures: ['dom-overlay'],
         domOverlay: { root: document.getElementById('ui-panel') } 
     });
     document.body.appendChild(arButton);
-    // ARボタンを初期状態で隠す
-    arButton.style.display = 'none'; 
+    arButton.style.display = 'none'; // 初期は隠す
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -284,7 +296,6 @@
         try {
             gridHelper = new THREE.GridHelper(20, 20, 0xcccccc, 0xe5e5e5);
             contentGroup.add(gridHelper);
-            
             axesHelper = new THREE.AxesHelper(5);
             contentGroup.add(axesHelper);
 
@@ -311,6 +322,7 @@
             renderer.setAnimationLoop(render); 
         } catch (e) {
             console.error(e);
+            alert("初期化中にエラーが発生しました: " + e.message);
         }
     }
 
@@ -653,13 +665,12 @@
         
         // ARボタンの表示制御
         if(mode === 'ar') {
-            arButton.style.display = 'block'; // ARタブのときだけボタンを出す
+            arButton.style.display = 'block';
             document.querySelector('.tab-btn:nth-child(3)').classList.add('active');
             document.getElementById('mode-ar').classList.add('active');
             helperGroup.visible = false;
         } else {
-            arButton.style.display = 'none'; // それ以外は隠す
-            
+            arButton.style.display = 'none'; 
             if(mode === 'slider') {
                 document.querySelector('.tab-btn:nth-child(1)').classList.add('active');
                 document.getElementById('mode-slider').classList.add('active');
