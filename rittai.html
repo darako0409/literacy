@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>立体切断シミュレーター v18</title>
+    <title>立体切断シミュレーター v19</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: "Helvetica Neue", Arial, sans-serif; background-color: #f0f0f0; }
-        /* touch-action: none でスマホでのスクロール干渉を防止 */
         #canvas-container { width: 100vw; height: 100vh; position: relative; touch-action: none; }
         
         #loading-overlay {
@@ -320,31 +319,56 @@
         } catch(e) {}
     }
 
-    // iOS Export
+    // --- iOS Export 処理 (修正版) ---
     document.getElementById('ios-ar-btn').addEventListener('click', async () => {
         if (!currentShapeBrush) return;
         const btn = document.getElementById('ios-ar-btn');
         const originalText = btn.innerText;
         btn.innerText = "生成中..."; btn.disabled = true;
+
         try {
             const exporter = new USDZExporter();
-            const clone = currentShapeBrush.clone();
-            clone.scale.set(0.05, 0.05, 0.05);
-            clone.rotation.x = -Math.PI / 2;
-            clone.updateMatrixWorld();
-            const arraybuffer = await exporter.parse(clone);
+            
+            // ★重要修正: Brushのままではなく、現在のGeometryから純粋なMeshを再生成する
+            // これによりCSG計算の履歴などのゴミを取り除き、見たままの形を確定させる
+            currentShapeBrush.updateMatrixWorld(); // 念のため更新
+            
+            // 現在のジオメトリをディープクローン
+            const exportGeometry = currentShapeBrush.geometry.clone();
+            
+            // 新しい標準メッシュを作成 (BrushではなくMesh)
+            const exportMesh = new THREE.Mesh(
+                exportGeometry, 
+                new THREE.MeshStandardMaterial({
+                    color: 0x66ccff, 
+                    roughness: 0.2,
+                    metalness: 0.0
+                })
+            );
+
+            // サイズ調整 (卓上サイズに)
+            exportMesh.scale.set(0.05, 0.05, 0.05);
+            // USDZの座標系に合わせて回転
+            exportMesh.rotation.x = -Math.PI / 2;
+            exportMesh.updateMatrixWorld();
+
+            const arraybuffer = await exporter.parse(exportMesh);
             const blob = new Blob([arraybuffer], { type: 'model/vnd.usdz+zip' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.rel = 'ar'; link.href = url;
             link.appendChild(document.createElement('img'));
             link.click();
+
             btn.innerText = originalText; btn.disabled = false;
+
         } catch(err) {
+            console.error(err);
             alert("エラー: " + err.message);
             btn.innerText = originalText; btn.disabled = false;
         }
     });
+    // ----------------------------------
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -376,10 +400,7 @@
             reticle.matrixAutoUpdate = false; reticle.visible = false; scene.add(reticle); 
             window.addEventListener('resize', onWindowResize);
             renderer.domElement.addEventListener('pointermove', onPointerMove); 
-            
-            // 重要な変更: PointerDownイベントの登録
             renderer.domElement.addEventListener('pointerdown', onPointerDown); 
-            
             if (isWebXRAvailable) {
                 renderer.xr.addEventListener('sessionstart', onSessionStart);
                 renderer.xr.addEventListener('sessionend', onSessionEnd);
@@ -477,8 +498,6 @@
 
     function onPointerMove(event) {
         if (currentMode !== 'points') return; if (renderer.xr.isPresenting) return; 
-        // スマホのタッチ操作ではhoveredObjectを更新しない（カーソルがないため）
-        // PCのマウス操作のときのみ視覚的なフィードバックを行う
         if (event.pointerType === 'mouse') {
              updateMouse(event); raycaster.setFromCamera(mouse, camera);
              const intersects = raycaster.intersectObjects(interactionObjects);
@@ -494,31 +513,19 @@
         }
     }
 
-    // --- 修正されたPointerDownハンドラ (タッチ対応) ---
     function onPointerDown(event) {
         if (renderer.xr.isPresenting) return; 
         if (currentMode !== 'points') return;
-
-        // 1. 座標の取得 (PointerEventは汎用的だが念のため正規化)
         const rect = renderer.domElement.getBoundingClientRect();
         mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
         mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-        // 2. クリック/タップした瞬間にRaycasterを飛ばす (Hover状態に依存しない)
         raycaster.setFromCamera(mouse, camera);
         const intersects = raycaster.intersectObjects(interactionObjects);
-
-        // 3. 当たり判定があれば選択
         if (intersects.length > 0) {
-            // 一番手前のオブジェクトを採用
             const hitObj = intersects[0].object;
             addSelectedPoint(hitObj.userData.pos);
-            
-            // 視覚フィードバック（一瞬光らせるなど）
             hitObj.material.color.setHex(0x00ff00);
-            setTimeout(() => {
-                if(hitObj) hitObj.material.color.setHex(hitObj.userData.originalColor);
-            }, 200);
+            setTimeout(() => { if(hitObj) hitObj.material.color.setHex(hitObj.userData.originalColor); }, 200);
         }
     }
 
