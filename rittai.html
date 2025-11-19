@@ -2,11 +2,26 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>立体図形切断シミュレーター v6</title>
+    <title>立体図形切断シミュレーター v7</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: "Helvetica Neue", Arial, sans-serif; background-color: #f0f0f0; }
-        #canvas-container { width: 100vw; height: 100vh; }
+        #canvas-container { width: 100vw; height: 100vh; position: relative; }
         
+        /* 頂点ラベル用スタイル */
+        .vertex-label {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid #333;
+            border-radius: 50%;
+            width: 20px; height: 20px;
+            text-align: center; line-height: 20px;
+            font-size: 12px; font-weight: bold; color: #000;
+            pointer-events: none; /* マウス操作を邪魔しない */
+            z-index: 5;
+            transform: translate(-50%, -50%); /* 中心合わせ */
+            display: none; /* 初期状態はJSで制御 */
+        }
+
         /* UIパネル */
         #ui-panel {
             position: absolute; top: 10px; left: 10px;
@@ -34,7 +49,7 @@
         .control-group:last-child { border-bottom: none; }
         
         label { display: block; margin-bottom: 5px; font-weight: bold; color: #444; cursor: pointer; }
-        .checkbox-label { font-weight: normal; display: flex; align-items: center; gap: 5px; }
+        .checkbox-label { font-weight: normal; display: flex; align-items: center; gap: 5px; margin-bottom: 5px; }
 
         button {
             width: 100%; padding: 10px; margin-bottom: 8px;
@@ -62,11 +77,14 @@
 </head>
 <body>
 
-<div id="canvas-container"></div>
+<div id="canvas-container">
+    <div id="labels-container"></div>
+</div>
+
 <div id="error-log"></div>
 
 <div id="ui-panel">
-    <h2>立体切断シミュレーター v6</h2>
+    <h2>立体切断シミュレーター v7</h2>
 
     <div class="control-group">
         <label>図形選択</label>
@@ -126,10 +144,16 @@
         <button id="undo-btn" class="secondary" disabled>↩️ ひとつ戻る (Undo)</button>
         
         <div style="margin-top:15px; padding-top:10px; border-top:1px solid #ddd;">
-             <label style="font-size:12px; margin-bottom:8px;">表示オプション</label>
+             <label style="font-size:12px; margin-bottom:8px; color:#666;">▼ 表示オプション</label>
+             
              <label class="checkbox-label"><input type="checkbox" id="wireframe-check"> ワイヤーフレームのみ</label>
              <label class="checkbox-label"><input type="checkbox" id="grid-visible-check" checked> グリッド・軸を表示</label>
-             <label class="checkbox-label"><input type="checkbox" id="slider-visible-check" checked> スライダーを表示</label>
+             <label class="checkbox-label"><input type="checkbox" id="labels-visible-check" checked> 頂点ラベル(A,B..)を表示</label>
+             
+             <hr style="border:0; border-top:1px dashed #eee; margin:5px 0;">
+             
+             <label class="checkbox-label"><input type="checkbox" id="plane-visible-check" checked> 青い切断面を表示</label>
+             <label class="checkbox-label"><input type="checkbox" id="slider-visible-check" checked> スライダー操作パネルを表示</label>
         </div>
     </div>
 </div>
@@ -145,7 +169,6 @@
 </script>
 
 <script type="module">
-    // エラー表示
     window.onerror = function(message, source, lineno, colno, error) {
         const el = document.getElementById('error-log');
         el.style.display = 'block';
@@ -158,8 +181,9 @@
 
     // --- 1. シーン設定 ---
     const container = document.getElementById('canvas-container');
+    const labelsContainer = document.getElementById('labels-container');
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xfafafa); // 背景を真っ白に近く
+    scene.background = new THREE.Color(0xfafafa);
 
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
     camera.position.set(6, 5, 8);
@@ -173,24 +197,19 @@
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
 
-    // --- ライティング（照明）の調整 ---
-    // 以前よりAmbientLightを強くして、陰影を消す（フラットにする）
+    // ライト
     const ambientLight = new THREE.AmbientLight(0xffffff, 2.5); 
     scene.add(ambientLight);
-
-    // 影を少し落とすためのライト（弱める）
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
     dirLight.position.set(5, 10, 7);
     dirLight.castShadow = true;
     scene.add(dirLight);
-
-    // 逆側からのフィルライト（暗い面をなくすため）
     const fillLight = new THREE.DirectionalLight(0xffffff, 0.5);
     fillLight.position.set(-5, 0, -5);
     scene.add(fillLight);
 
 
-    // --- 変数定義 ---
+    // --- グローバル変数 ---
     let currentShapeBrush;    
     let materialStandard;     
     let historyStack = [];    
@@ -210,14 +229,14 @@
     let helperGroup = new THREE.Group();
     scene.add(helperGroup);
 
-    // グリッドと軸の管理用
-    let gridHelper, axesHelper;
+    // ラベル管理用
+    let vertexLabels = []; // { element: HTMLDivElement, position: THREE.Vector3 } の配列
 
+    let gridHelper, axesHelper;
     const evaluator = new Evaluator();
 
-    // マテリアル（明るい色に変更）
     materialStandard = new THREE.MeshStandardMaterial({ 
-        color: 0x66ccff, // 明るい水色
+        color: 0x66ccff, 
         roughness: 0.5,
         metalness: 0.0,
         transparent: true,
@@ -230,11 +249,8 @@
 
     function init() {
         try {
-            // グリッド
             gridHelper = new THREE.GridHelper(20, 20, 0xcccccc, 0xe5e5e5);
             scene.add(gridHelper);
-            
-            // 軸（赤緑青の線）
             axesHelper = new THREE.AxesHelper(5);
             scene.add(axesHelper);
 
@@ -294,10 +310,89 @@
         
         historyStack = [];
         createSnapPoints(geometry, currentShapeBrush);
+        createLabels(geometry, currentShapeBrush); // ラベル生成
         updateUI();
     }
 
-    // --- スナップポイント生成 (変更なし) ---
+    // --- ラベル生成システム ---
+    function createLabels(geometry, mesh) {
+        // 既存ラベルを削除
+        vertexLabels.forEach(l => l.element.remove());
+        vertexLabels = [];
+
+        if (!document.getElementById('labels-visible-check').checked) return;
+
+        const posAttr = geometry.attributes.position;
+        const uniquePoints = [];
+        const threshold = 0.01;
+
+        // 重複しない頂点を抽出
+        for (let i = 0; i < posAttr.count; i++) {
+            const v = new THREE.Vector3().fromBufferAttribute(posAttr, i);
+            let exists = false;
+            for (let p of uniquePoints) {
+                if (p.distanceTo(v) < threshold) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists) uniquePoints.push(v);
+        }
+
+        // 上から順、あるいは単純なソートで記号を振る（Y座標が高い順、同じならX順など）
+        uniquePoints.sort((a, b) => {
+            if (Math.abs(b.y - a.y) > 0.1) return b.y - a.y; // Y降順
+            if (Math.abs(b.x - a.x) > 0.1) return a.x - b.x; // X昇順
+            return a.z - b.z;
+        });
+
+        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        uniquePoints.forEach((localPos, index) => {
+            if (index >= chars.length) return;
+
+            const labelText = chars[index];
+            const div = document.createElement('div');
+            div.className = 'vertex-label';
+            div.innerText = labelText;
+            labelsContainer.appendChild(div);
+
+            // ワールド座標に変換して保持
+            const worldPos = localPos.clone().applyMatrix4(mesh.matrixWorld);
+            vertexLabels.push({ element: div, position: worldPos });
+        });
+    }
+
+    // アニメーションループ内でラベル位置を更新
+    function updateLabels() {
+        if (vertexLabels.length === 0) return;
+        
+        const isVisible = document.getElementById('labels-visible-check').checked;
+        if (!isVisible) {
+             vertexLabels.forEach(l => l.element.style.display = 'none');
+             return;
+        }
+
+        const widthHalf = window.innerWidth / 2;
+        const heightHalf = window.innerHeight / 2;
+
+        vertexLabels.forEach(label => {
+            const pos = label.position.clone();
+            pos.project(camera); // スクリーン座標変換 (-1 to 1)
+
+            // カメラの後ろにある場合は隠す
+            if (pos.z > 1) {
+                label.element.style.display = 'none';
+            } else {
+                label.element.style.display = 'block';
+                const x = (pos.x * widthHalf) + widthHalf;
+                const y = -(pos.y * heightHalf) + heightHalf;
+                label.element.style.left = `${x}px`;
+                label.element.style.top = `${y}px`;
+            }
+        });
+    }
+
+    // --- スナップポイント生成 (既存) ---
     function createSnapPoints(geometry, mesh) {
         helperGroup.clear();
         interactionObjects = [];
@@ -318,40 +413,27 @@
             
             const worldPos = pos.clone().applyMatrix4(mesh.matrixWorld);
             sphere.position.copy(worldPos);
-            
-            sphere.userData = { 
-                isSnapPoint: true, 
-                originalColor: color,
-                hoverColor: 0xffaa00,
-                pos: worldPos.clone()
-            };
-
+            sphere.userData = { isSnapPoint: true, originalColor: color, hoverColor: 0xffaa00, pos: worldPos.clone() };
             helperGroup.add(sphere);
             interactionObjects.push(sphere);
         }
 
         const posAttr = geometry.attributes.position;
         for(let i=0; i<posAttr.count; i++){
-             const v = new THREE.Vector3().fromBufferAttribute(posAttr, i);
-             addSnapSphere(v, 'vertex');
+             addSnapSphere(new THREE.Vector3().fromBufferAttribute(posAttr, i), 'vertex');
         }
-
         const edgesGeo = new THREE.EdgesGeometry(geometry, 20); 
         const edgePos = edgesGeo.attributes.position;
-
         for (let i = 0; i < edgePos.count; i += 2) {
             const start = new THREE.Vector3().fromBufferAttribute(edgePos, i);
             const end = new THREE.Vector3().fromBufferAttribute(edgePos, i + 1);
-            
-            // 中点
             addSnapSphere(start.clone().lerp(end, 0.5), 'sub');
-            // 3等分点
             addSnapSphere(start.clone().lerp(end, 1/3), 'sub');
             addSnapSphere(start.clone().lerp(end, 2/3), 'sub');
         }
     }
 
-    // --- インタラクション (変更なし) ---
+    // --- インタラクション ---
     function onPointerMove(event) {
         if (currentMode !== 'points') return;
         updateMouse(event);
@@ -449,6 +531,8 @@
     function performCut(inverse) {
         if (!currentShapeBrush) return;
         const historyGeometry = currentShapeBrush.geometry.clone();
+        
+        // ラベル情報は完全な復元が難しいため、Undo時は再生成する
         historyStack.push({ geo: historyGeometry });
 
         try {
@@ -466,6 +550,10 @@
             invisibleCutterBrush.scale.y = 1;
             clearPoints();
             helperGroup.visible = false;
+            
+            // 切断後はラベルを再生成（頂点が変わるため）
+            createLabels(currentShapeBrush.geometry, currentShapeBrush);
+
         } catch (err) {
             console.error("Cut failed:", err);
         }
@@ -486,6 +574,7 @@
              createShape(document.getElementById('shape-select').value);
         } else {
              helperGroup.visible = false;
+             createLabels(currentShapeBrush.geometry, currentShapeBrush);
         }
         updateUI();
     }
@@ -499,15 +588,30 @@
         }
     }
 
-    // --- 表示切替イベント ---
+    // --- イベントリスナー ---
     document.getElementById('grid-visible-check').addEventListener('change', (e) => {
         gridHelper.visible = e.target.checked;
         axesHelper.visible = e.target.checked;
     });
-
+    
+    // スライダーパネル自体の表示切替
     document.getElementById('slider-visible-check').addEventListener('change', (e) => {
         const wrapper = document.getElementById('slider-controls-wrapper');
         wrapper.style.display = e.target.checked ? 'block' : 'none';
+    });
+
+    // 青い切断面の表示切替 (New)
+    document.getElementById('plane-visible-check').addEventListener('change', (e) => {
+        visualPlane.visible = e.target.checked;
+    });
+
+    // ラベルの表示切替 (New)
+    document.getElementById('labels-visible-check').addEventListener('change', (e) => {
+        if(e.target.checked) {
+            createLabels(currentShapeBrush.geometry, currentShapeBrush);
+        } else {
+            vertexLabels.forEach(l => l.element.style.display = 'none');
+        }
     });
 
     window.switchMode = function(mode) {
@@ -539,6 +643,7 @@
         requestAnimationFrame(animate);
         controls.update();
         renderer.render(scene, camera);
+        updateLabels(); // ラベル位置更新
     }
 
     function updateUI() {
