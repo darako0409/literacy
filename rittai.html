@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>立体図形切断シミュレーター v5</title>
+    <title>立体図形切断シミュレーター v6</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: "Helvetica Neue", Arial, sans-serif; background-color: #f0f0f0; }
         #canvas-container { width: 100vw; height: 100vh; }
@@ -33,7 +33,9 @@
         .control-group { margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
         .control-group:last-child { border-bottom: none; }
         
-        label { display: block; margin-bottom: 5px; font-weight: bold; color: #444; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; color: #444; cursor: pointer; }
+        .checkbox-label { font-weight: normal; display: flex; align-items: center; gap: 5px; }
+
         button {
             width: 100%; padding: 10px; margin-bottom: 8px;
             background-color: #007bff; color: white; border: none;
@@ -64,7 +66,7 @@
 <div id="error-log"></div>
 
 <div id="ui-panel">
-    <h2>立体切断シミュレーター v5</h2>
+    <h2>立体切断シミュレーター v6</h2>
 
     <div class="control-group">
         <label>図形選択</label>
@@ -84,17 +86,19 @@
     </div>
 
     <div id="mode-slider" class="mode-content active">
-        <div class="control-group">
-            <label>切断面の調整</label>
-            <label>高さ (Y) <span id="val-y" class="value-display">0.00</span></label>
-            <input type="range" id="cut-y" min="-3" max="3" step="0.01" value="0">
-            
-            <label>回転 (X:手前奥) <span id="val-rx" class="value-display">0°</span></label>
-            <input type="range" id="cut-rx" min="-180" max="180" step="1" value="0">
-            
-            <label>回転 (Z:左右) <span id="val-rz" class="value-display">0°</span></label>
-            <input type="range" id="cut-rz" min="-180" max="180" step="1" value="0">
-            <button class="secondary" id="reset-slider-btn" style="font-size:12px; padding:5px; margin-top:5px;">角度を水平に戻す</button>
+        <div id="slider-controls-wrapper">
+            <div class="control-group">
+                <label>切断面の調整</label>
+                <label>高さ (Y) <span id="val-y" class="value-display">0.00</span></label>
+                <input type="range" id="cut-y" min="-3" max="3" step="0.01" value="0">
+                
+                <label>回転 (X:手前奥) <span id="val-rx" class="value-display">0°</span></label>
+                <input type="range" id="cut-rx" min="-180" max="180" step="1" value="0">
+                
+                <label>回転 (Z:左右) <span id="val-rz" class="value-display">0°</span></label>
+                <input type="range" id="cut-rz" min="-180" max="180" step="1" value="0">
+                <button class="secondary" id="reset-slider-btn" style="font-size:12px; padding:5px; margin-top:5px;">角度を水平に戻す</button>
+            </div>
         </div>
     </div>
 
@@ -102,11 +106,9 @@
         <div class="control-group">
             <label>切断点の選択</label>
             <p class="hint-text">
-                以下の点のみ選択可能です：<br>
                 ● <b>頂点</b> (大)<br>
                 ● <b>中点・3等分点</b> (小)
             </p>
-            
             <div style="display:flex; gap:5px;">
                 <button id="clear-points-btn" class="danger" style="font-size:12px;">選択クリア</button>
             </div>
@@ -122,8 +124,12 @@
 
     <div class="control-group">
         <button id="undo-btn" class="secondary" disabled>↩️ ひとつ戻る (Undo)</button>
-        <div style="margin-top:10px;">
-             <label style="font-weight:normal;"><input type="checkbox" id="wireframe-check"> ワイヤーフレーム表示</label>
+        
+        <div style="margin-top:15px; padding-top:10px; border-top:1px solid #ddd;">
+             <label style="font-size:12px; margin-bottom:8px;">表示オプション</label>
+             <label class="checkbox-label"><input type="checkbox" id="wireframe-check"> ワイヤーフレームのみ</label>
+             <label class="checkbox-label"><input type="checkbox" id="grid-visible-check" checked> グリッド・軸を表示</label>
+             <label class="checkbox-label"><input type="checkbox" id="slider-visible-check" checked> スライダーを表示</label>
         </div>
     </div>
 </div>
@@ -139,6 +145,7 @@
 </script>
 
 <script type="module">
+    // エラー表示
     window.onerror = function(message, source, lineno, colno, error) {
         const el = document.getElementById('error-log');
         el.style.display = 'block';
@@ -149,10 +156,10 @@
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
     import { SUBTRACTION, Brush, Evaluator } from 'three-bvh-csg';
 
-    // 1. セットアップ
+    // --- 1. シーン設定 ---
     const container = document.getElementById('canvas-container');
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf5f5f5);
+    scene.background = new THREE.Color(0xfafafa); // 背景を真っ白に近く
 
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
     camera.position.set(6, 5, 8);
@@ -166,14 +173,24 @@
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
 
-    const ambientLight = new THREE.AmbientLight(0x404040, 2.0);
+    // --- ライティング（照明）の調整 ---
+    // 以前よりAmbientLightを強くして、陰影を消す（フラットにする）
+    const ambientLight = new THREE.AmbientLight(0xffffff, 2.5); 
     scene.add(ambientLight);
-    const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
+
+    // 影を少し落とすためのライト（弱める）
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
     dirLight.position.set(5, 10, 7);
     dirLight.castShadow = true;
     scene.add(dirLight);
 
-    // 2. 変数定義
+    // 逆側からのフィルライト（暗い面をなくすため）
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    fillLight.position.set(-5, 0, -5);
+    scene.add(fillLight);
+
+
+    // --- 変数定義 ---
     let currentShapeBrush;    
     let materialStandard;     
     let historyStack = [];    
@@ -183,43 +200,51 @@
     let invisibleCutterBrush;
 
     let currentMode = 'slider'; 
-    let interactionObjects = []; // クリック可能な球体リスト
+    let interactionObjects = []; 
     let selectedPoints = [];     
     let pointMarkers = [];       
     let raycaster = new THREE.Raycaster();
     let mouse = new THREE.Vector2();
-    let hoveredObject = null;    // マウスオーバー中のオブジェクト
+    let hoveredObject = null;    
     
     let helperGroup = new THREE.Group();
     scene.add(helperGroup);
 
+    // グリッドと軸の管理用
+    let gridHelper, axesHelper;
+
     const evaluator = new Evaluator();
 
-    // マテリアル（半透明化）
+    // マテリアル（明るい色に変更）
     materialStandard = new THREE.MeshStandardMaterial({ 
-        color: 0x44aaff,
-        roughness: 0.2,
-        metalness: 0.1,
+        color: 0x66ccff, // 明るい水色
+        roughness: 0.5,
+        metalness: 0.0,
         transparent: true,
-        opacity: 0.85, 
+        opacity: 0.9, 
         side: THREE.DoubleSide,
     });
 
-    // 3. 初期化
+    // --- 初期化 ---
     init();
 
     function init() {
         try {
-            const gridHelper = new THREE.GridHelper(20, 20, 0xcccccc, 0xe5e5e5);
+            // グリッド
+            gridHelper = new THREE.GridHelper(20, 20, 0xcccccc, 0xe5e5e5);
             scene.add(gridHelper);
+            
+            // 軸（赤緑青の線）
+            axesHelper = new THREE.AxesHelper(5);
+            scene.add(axesHelper);
 
             setupCutterSystem();
             createShape('cube');
             updateCutterTransform();
 
             window.addEventListener('resize', onWindowResize);
-            renderer.domElement.addEventListener('pointermove', onPointerMove); // ホバー用
-            renderer.domElement.addEventListener('pointerdown', onPointerDown); // クリック用
+            renderer.domElement.addEventListener('pointermove', onPointerMove); 
+            renderer.domElement.addEventListener('pointerdown', onPointerDown); 
 
             animate();
         } catch (e) {
@@ -233,13 +258,13 @@
 
         const planeGeo = new THREE.PlaneGeometry(12, 12);
         const planeMat = new THREE.MeshBasicMaterial({
-            color: 0x007bff, opacity: 0.25, transparent: true, side: THREE.DoubleSide, depthWrite: false
+            color: 0x007bff, opacity: 0.2, transparent: true, side: THREE.DoubleSide, depthWrite: false
         });
         visualPlane = new THREE.Mesh(planeGeo, planeMat);
         visualPlane.rotation.x = -Math.PI / 2;
         
         const edges = new THREE.EdgesGeometry(planeGeo);
-        const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x0000ff, opacity: 0.5, transparent:true }));
+        const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x0000ff, opacity: 0.3, transparent:true }));
         visualPlane.add(line);
         cutterGroup.add(visualPlane);
 
@@ -268,30 +293,21 @@
         scene.add(currentShapeBrush);
         
         historyStack = [];
-        
-        // スナップポイント（選択可能な点）の生成
         createSnapPoints(geometry, currentShapeBrush);
-        
         updateUI();
     }
 
-    // ============================
-    // 4. スナップポイント生成 (重要)
-    // ============================
+    // --- スナップポイント生成 (変更なし) ---
     function createSnapPoints(geometry, mesh) {
         helperGroup.clear();
         interactionObjects = [];
-        const addedPoints = new Set(); // 重複防止用
+        const addedPoints = new Set(); 
 
-        // スフィアを作成して配置する内部関数
-        // type: 'vertex' (大) or 'sub' (小)
         function addSnapSphere(pos, type) {
-            // 座標をキーにして重複チェック
             const key = `${pos.x.toFixed(3)},${pos.y.toFixed(3)},${pos.z.toFixed(3)}`;
             if (addedPoints.has(key)) return;
             addedPoints.add(key);
 
-            // サイズ決定: 頂点は大きく、途中点は小さく
             const size = (type === 'vertex') ? 0.15 : 0.08;
             const color = (type === 'vertex') ? 0x333333 : 0x666666;
             const opacity = (type === 'vertex') ? 0.6 : 0.4;
@@ -300,8 +316,6 @@
             const mat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: opacity });
             const sphere = new THREE.Mesh(geo, mat);
             
-            // ワールド座標に配置
-            // (meshは初期位置(0,0,0)前提だが、汎用性のためMatrix適用)
             const worldPos = pos.clone().applyMatrix4(mesh.matrixWorld);
             sphere.position.copy(worldPos);
             
@@ -316,55 +330,38 @@
             interactionObjects.push(sphere);
         }
 
-        // A. 頂点の抽出と配置
-        // ConeGeometryなどの場合、頂点配列を走査
         const posAttr = geometry.attributes.position;
-        // 頂点の追加
         for(let i=0; i<posAttr.count; i++){
              const v = new THREE.Vector3().fromBufferAttribute(posAttr, i);
              addSnapSphere(v, 'vertex');
         }
 
-        // B. 辺の抽出と中点・3等分点の計算
-        // EdgesGeometryを使って「視覚的な辺」の両端を取得する
-        // thresholdAngleを大きめにとって、主要な辺だけを拾う
         const edgesGeo = new THREE.EdgesGeometry(geometry, 20); 
         const edgePos = edgesGeo.attributes.position;
 
         for (let i = 0; i < edgePos.count; i += 2) {
             const start = new THREE.Vector3().fromBufferAttribute(edgePos, i);
             const end = new THREE.Vector3().fromBufferAttribute(edgePos, i + 1);
-
-            // 1. 中点 (1/2)
-            const mid = start.clone().lerp(end, 0.5);
-            addSnapSphere(mid, 'sub');
-
-            // 2. 3等分点 (1/3, 2/3)
-            const tri1 = start.clone().lerp(end, 1/3);
-            const tri2 = start.clone().lerp(end, 2/3);
-            addSnapSphere(tri1, 'sub');
-            addSnapSphere(tri2, 'sub');
+            
+            // 中点
+            addSnapSphere(start.clone().lerp(end, 0.5), 'sub');
+            // 3等分点
+            addSnapSphere(start.clone().lerp(end, 1/3), 'sub');
+            addSnapSphere(start.clone().lerp(end, 2/3), 'sub');
         }
     }
 
-    // ============================
-    // 5. インタラクション
-    // ============================
+    // --- インタラクション (変更なし) ---
     function onPointerMove(event) {
         if (currentMode !== 'points') return;
-        
         updateMouse(event);
         raycaster.setFromCamera(mouse, camera);
-        
         const intersects = raycaster.intersectObjects(interactionObjects);
         
-        // ホバーエフェクト
         if (intersects.length > 0) {
             const obj = intersects[0].object;
             if (hoveredObject !== obj) {
-                // 前のを戻す
                 if (hoveredObject) hoveredObject.material.color.setHex(hoveredObject.userData.originalColor);
-                
                 hoveredObject = obj;
                 hoveredObject.material.color.setHex(obj.userData.hoverColor);
                 document.body.style.cursor = 'pointer';
@@ -380,8 +377,7 @@
 
     function onPointerDown(event) {
         if (currentMode !== 'points') return;
-        if (!hoveredObject) return; // ホバーしてなければ無視
-
+        if (!hoveredObject) return; 
         addSelectedPoint(hoveredObject.userData.pos);
     }
 
@@ -393,20 +389,14 @@
 
     function addSelectedPoint(pos) {
         selectedPoints.push(pos.clone());
-
-        // 選択確定マーカー（赤）
-        const markerGeo = new THREE.SphereGeometry(0.18, 16, 16); // 少し大きく
+        const markerGeo = new THREE.SphereGeometry(0.18, 16, 16); 
         const markerMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
         const marker = new THREE.Mesh(markerGeo, markerMat);
         marker.position.copy(pos);
         scene.add(marker);
         pointMarkers.push(marker);
-
         updatePointCountUI();
-        
-        if (selectedPoints.length >= 3) {
-            alignCutterToPoints();
-        }
+        if (selectedPoints.length >= 3) alignCutterToPoints();
     }
 
     function clearPoints() {
@@ -424,17 +414,13 @@
 
     function alignCutterToPoints() {
         if (selectedPoints.length < 3) return;
-
         const p1 = selectedPoints[0];
         const p2 = selectedPoints[1];
         const p3 = selectedPoints[2];
-
         const plane = new THREE.Plane();
         plane.setFromCoplanarPoints(p1, p2, p3);
-
         const coplanarPoint = plane.normal.clone().multiplyScalar(-plane.constant);
         cutterGroup.position.copy(coplanarPoint);
-
         const defaultNormal = new THREE.Vector3(0, 1, 0);
         const targetNormal = plane.normal.clone();
         const quaternion = new THREE.Quaternion();
@@ -443,16 +429,12 @@
         cutterGroup.updateMatrixWorld();
     }
 
-    // ============================
-    // 6. 共通処理
-    // ============================
+    // --- 共通処理 ---
     function updateCutterTransform() {
         if (currentMode !== 'slider') return; 
-
         const y = parseFloat(document.getElementById('cut-y').value);
         const rx = parseFloat(document.getElementById('cut-rx').value);
         const rz = parseFloat(document.getElementById('cut-rz').value);
-
         cutterGroup.position.set(0, y, 0);
         cutterGroup.rotation.set(
             THREE.MathUtils.degToRad(rx),
@@ -466,7 +448,6 @@
 
     function performCut(inverse) {
         if (!currentShapeBrush) return;
-
         const historyGeometry = currentShapeBrush.geometry.clone();
         historyStack.push({ geo: historyGeometry });
 
@@ -474,23 +455,17 @@
             invisibleCutterBrush.updateMatrixWorld();
             invisibleCutterBrush.scale.y = inverse ? -1 : 1;
             invisibleCutterBrush.updateMatrixWorld();
-
             const resultBrush = evaluator.evaluate(currentShapeBrush, invisibleCutterBrush, SUBTRACTION);
             
             scene.remove(currentShapeBrush);
             currentShapeBrush = resultBrush;
-            
             updateMaterial();
             currentShapeBrush.castShadow = true;
             currentShapeBrush.receiveShadow = true;
             scene.add(currentShapeBrush);
-
             invisibleCutterBrush.scale.y = 1;
-            
-            // 切断後はスナップポイントを消去（形状変わるので）
             clearPoints();
             helperGroup.visible = false;
-
         } catch (err) {
             console.error("Cut failed:", err);
         }
@@ -500,17 +475,14 @@
     function undo() {
         if (historyStack.length === 0) return;
         const state = historyStack.pop();
-        
         scene.remove(currentShapeBrush);
         currentShapeBrush = new Brush(state.geo, materialStandard);
-        
         updateMaterial();
         currentShapeBrush.castShadow = true;
         currentShapeBrush.receiveShadow = true;
         scene.add(currentShapeBrush);
         
         if (historyStack.length === 0) { 
-            // 初期状態に戻った
              createShape(document.getElementById('shape-select').value);
         } else {
              helperGroup.visible = false;
@@ -519,12 +491,24 @@
     }
 
     function updateMaterial() {
-        if (document.getElementById('wireframe-check').checked) {
+        const isWire = document.getElementById('wireframe-check').checked;
+        if (isWire) {
             currentShapeBrush.material = new THREE.MeshBasicMaterial({ wireframe: true, color: 0x333333 });
         } else {
             currentShapeBrush.material = materialStandard;
         }
     }
+
+    // --- 表示切替イベント ---
+    document.getElementById('grid-visible-check').addEventListener('change', (e) => {
+        gridHelper.visible = e.target.checked;
+        axesHelper.visible = e.target.checked;
+    });
+
+    document.getElementById('slider-visible-check').addEventListener('change', (e) => {
+        const wrapper = document.getElementById('slider-controls-wrapper');
+        wrapper.style.display = e.target.checked ? 'block' : 'none';
+    });
 
     window.switchMode = function(mode) {
         currentMode = mode;
@@ -539,7 +523,6 @@
             document.querySelector('.tab-btn:nth-child(2)').classList.add('active');
             document.getElementById('mode-points').classList.add('active');
             helperGroup.visible = true;
-            // ヘルパー再生成チェック
             if(historyStack.length === 0 && interactionObjects.length === 0) {
                 createSnapPoints(currentShapeBrush.geometry, currentShapeBrush);
             }
@@ -562,7 +545,6 @@
         document.getElementById('undo-btn').disabled = (historyStack.length === 0);
     }
 
-    // イベントリスナー
     document.getElementById('shape-select').addEventListener('change', (e) => createShape(e.target.value));
     ['cut-y', 'cut-rx', 'cut-rz'].forEach(id => document.getElementById(id).addEventListener('input', updateCutterTransform));
     document.getElementById('reset-slider-btn').addEventListener('click', () => {
