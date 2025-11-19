@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>立体切断シミュレーター v14 (診断機能付)</title>
+    <title>立体切断シミュレーター v15 (iOS対応)</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: "Helvetica Neue", Arial, sans-serif; background-color: #f0f0f0; }
         #canvas-container { width: 100vw; height: 100vh; position: relative; }
@@ -75,19 +75,20 @@
         button.danger { background-color: #dc3545; }
         button:disabled { background-color: #ccc; cursor: not-allowed; opacity: 0.7; }
         
+        /* iOS用ボタン */
+        #ios-ar-btn {
+            background-color: #28a745; display: none; margin-top: 10px;
+        }
+        #ios-ar-btn:hover { background-color: #218838; }
+
         select { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; }
         input[type=range] { width: 100%; cursor: pointer; }
         .value-display { float: right; font-weight: normal; font-family: monospace; }
         .hint-text { font-size: 12px; color: #666; margin-top: -2px; margin-bottom: 8px; line-height: 1.4; }
         
-        /* 診断結果表示用スタイル */
         .debug-info {
-            font-size: 12px; background: #fff3cd; padding: 10px; border-radius: 5px; border: 1px solid #ffeeba; color: #856404; margin-bottom: 10px;
+            font-size: 12px; background: #e2e3e5; padding: 10px; border-radius: 5px; color: #383d41; margin-bottom: 10px;
         }
-        .debug-ok { color: green; font-weight: bold; }
-        .debug-ng { color: red; font-weight: bold; }
-        
-        #ar-button-container { display: none; } 
     </style>
     
     <script>
@@ -115,7 +116,7 @@
 </div>
 
 <div id="ui-panel">
-    <h2>立体切断シミュレーター v14</h2>
+    <h2>立体切断シミュレーター v15</h2>
 
     <div class="control-group">
         <label>図形選択</label>
@@ -165,17 +166,19 @@
         <div class="control-group">
             <label>AR（拡張現実）モード</label>
             
-            <div id="ar-debug-info" class="debug-info">
-                診断中...
-            </div>
+            <div id="ar-debug-info" class="debug-info">診断中...</div>
 
-            <div id="ar-instructions" style="display:none;">
+            <div id="webxr-instructions" style="display:none;">
                 <p class="hint-text">
                     1. 下の <b>[START AR]</b> を押す<br>
-                    2. スマホカメラで床や机を映す<br>
-                    3. 白いリングが出たら画面をタップ<br>
+                    2. 床や机を映し、白いリングが出たらタップ
                 </p>
             </div>
+
+            <button id="ios-ar-btn">📱 AR Quick Look (iOS)</button>
+            <p id="ios-hint" class="hint-text" style="display:none;">
+                ボタンを押すと、現在の図形をARファイルに変換して表示します。(カメラ許可は不要です)
+            </p>
         </div>
     </div>
 
@@ -187,7 +190,6 @@
 
     <div class="control-group">
         <button id="undo-btn" class="secondary" disabled>↩️ ひとつ戻る (Undo)</button>
-        
         <div style="margin-top:15px; padding-top:10px; border-top:1px solid #ddd;">
              <label style="font-size:12px; margin-bottom:8px; color:#666;">▼ 表示オプション</label>
              <label class="checkbox-label"><input type="checkbox" id="wireframe-check"> ワイヤーフレームのみ</label>
@@ -215,66 +217,45 @@
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
     import { ARButton } from 'three/addons/webxr/ARButton.js';
+    import { USDZExporter } from 'three/addons/exporters/USDZExporter.js'; // iOS用エクスポーター
     import { SUBTRACTION, Brush, Evaluator } from 'three-bvh-csg';
 
     const overlay = document.getElementById('loading-overlay');
     if(overlay) overlay.style.display = 'none';
     document.getElementById('ui-panel').style.display = 'block';
 
-    // --- AR環境診断ロジック ---
+    // --- 環境判定ロジック ---
+    let isWebXRAvailable = ('xr' in navigator);
+    const isIos = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    
     function checkAREnvironment() {
         const debugEl = document.getElementById('ar-debug-info');
-        const instructionsEl = document.getElementById('ar-instructions');
-        
-        let isHttps = (location.protocol === 'https:');
-        // localhostは特別に許可
-        if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') isHttps = true;
-
-        let isWebXRAvailable = ('xr' in navigator);
-        let userAgent = navigator.userAgent;
-        let isIphone = /iPhone|iPad|iPod/i.test(userAgent);
-        let isAndroid = /Android/i.test(userAgent);
+        const webxrInst = document.getElementById('webxr-instructions');
+        const iosBtn = document.getElementById('ios-ar-btn');
+        const iosHint = document.getElementById('ios-hint');
 
         let html = "";
-        
-        // 1. HTTPSチェック
-        html += `接続: ${isHttps ? '<span class="debug-ok">OK (HTTPS)</span>' : '<span class="debug-ng">NG (HTTPです)</span>'}<br>`;
-        if (!isHttps) {
-            html += "※ARにはhttps接続(GitHub Pages等)が必須です。<br>";
-        }
 
-        // 2. WebXR APIチェック
-        html += `WebXR対応: ${isWebXRAvailable ? '<span class="debug-ok">OK</span>' : '<span class="debug-ng">未対応</span>'}<br>`;
-
-        // 3. 端末判定とアドバイス
-        if (isIphone) {
-            html += `端末: iPhone/iPad detected.<br>`;
-            if (!isWebXRAvailable) {
-                 html += `<div style="margin-top:5px; color:red; font-weight:bold; border:1px solid red; padding:5px; background:#fff;">
-                    【重要】iPhoneのSafariはWebXRに未対応です。<br>
-                    AppStoreから無料の<br>
-                    「<a href="https://apps.apple.com/jp/app/webxr-viewer/id1295996856" target="_blank">WebXR Viewer</a>」<br>
-                    というブラウザアプリをインストールし、そこでこのページを開いてください。
-                 </div>`;
-            }
-        } else if (isAndroid) {
-             html += `端末: Android detected.<br>`;
-             if (!isWebXRAvailable) {
-                 html += "Chromeブラウザを使用してください。また「Google Play 開発者サービス(AR)」のインストールが必要です。<br>";
-             }
+        if (isWebXRAvailable && !isIos) {
+            // Android / WebXR対応PC
+            html += "端末: WebXR対応 (Android等)<br>ARボタンを表示します。";
+            webxrInst.style.display = 'block';
+            return 'webxr';
+        } else if (isIos) {
+            // iOS (Safari)
+            html += "端末: iOS (iPhone/iPad)<br><b>AR Quick Look</b> モードで動作します。<br>下の緑のボタンを押すとARビューアーが起動します。";
+            iosBtn.style.display = 'block';
+            iosHint.style.display = 'block';
+            return 'ios';
         } else {
-             html += `端末: PC (または不明)<br>PCではARは動作しません。<br>`;
+            // 非対応PC
+            html += "端末: AR非対応 (PC等)<br>この端末ではAR機能は使用できません。<br>スライダー操作等は可能です。";
+            return 'none';
         }
-
         debugEl.innerHTML = html;
-
-        // ボタン表示判定
-        if (isHttps && isWebXRAvailable) {
-            instructionsEl.style.display = 'block';
-            return true; // AR可能
-        }
-        return false; // AR不可
     }
+
+    const arMode = checkAREnvironment();
     // ------------------------
 
     const container = document.getElementById('canvas-container');
@@ -289,24 +270,63 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    if ('xr' in navigator) renderer.xr.enabled = true; 
+    if (isWebXRAvailable) renderer.xr.enabled = true; 
     container.appendChild(renderer.domElement);
 
-    // ARボタン作成 (エラー抑制)
-    let arButton = null;
-    const canRunAR = checkAREnvironment(); // 診断実行
-
-    if (canRunAR) {
+    // WebXRボタン (Android用)
+    let webXrButton = null;
+    if (arMode === 'webxr') {
         try {
-            arButton = ARButton.createButton(renderer, { 
+            webXrButton = ARButton.createButton(renderer, { 
                 requiredFeatures: ['hit-test'],
                 optionalFeatures: ['dom-overlay'],
                 domOverlay: { root: document.getElementById('ui-panel') } 
             });
-            document.body.appendChild(arButton);
-            arButton.style.display = 'none'; 
-        } catch(e) { console.log("AR Button Error", e); }
+            document.body.appendChild(webXrButton);
+            webXrButton.style.display = 'none';
+        } catch(e) {}
     }
+
+    // iOS Quick Lookボタン処理
+    document.getElementById('ios-ar-btn').addEventListener('click', async () => {
+        if (!currentShapeBrush) return;
+        
+        const btn = document.getElementById('ios-ar-btn');
+        btn.innerText = "ARファイルを生成中...";
+        btn.disabled = true;
+
+        try {
+            const exporter = new USDZExporter();
+            // currentShapeBrushだけをエクスポートする
+            // サイズが3mだとデカすぎるので、一時的にクローンして小さくする
+            const clone = currentShapeBrush.clone();
+            clone.scale.set(0.05, 0.05, 0.05); // 卓上サイズに
+            clone.rotation.x = -Math.PI / 2;   // 向き調整(USDZの座標系用)
+            clone.updateMatrixWorld();
+
+            const arraybuffer = await exporter.parse( clone );
+            const blob = new Blob( [ arraybuffer ], { type: 'model/vnd.usdz+zip' } );
+            const url = URL.createObjectURL( blob );
+
+            // リンクを作成してクリック（AR Quick Look起動）
+            const link = document.createElement( 'a' );
+            link.rel = 'ar';
+            link.href = url;
+            // アイコン用画像（ダミーでも動くが推奨）
+            const img = document.createElement('img');
+            link.appendChild(img);
+            
+            link.click();
+
+            btn.innerText = "📱 AR Quick Look (iOS)";
+            btn.disabled = false;
+
+        } catch(err) {
+            alert("AR生成エラー: " + err.message);
+            btn.innerText = "エラー発生";
+            btn.disabled = false;
+        }
+    });
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -330,7 +350,6 @@
     let cutterGroup;
     let visualPlane;
     let invisibleCutterBrush;
-
     let currentMode = 'slider'; 
     let interactionObjects = []; 
     let selectedPoints = [];     
@@ -338,14 +357,11 @@
     let raycaster = new THREE.Raycaster();
     let mouse = new THREE.Vector2();
     let hoveredObject = null;    
-    
     let helperGroup = new THREE.Group();
     contentGroup.add(helperGroup);
-
     let vertexLabels = []; 
     let gridHelper, axesHelper;
     const evaluator = new Evaluator();
-
     let reticle;
     let hitTestSource = null;
     let hitTestSourceRequested = false;
@@ -362,38 +378,28 @@
             contentGroup.add(gridHelper);
             axesHelper = new THREE.AxesHelper(5);
             contentGroup.add(axesHelper);
-
             setupCutterSystem();
             createShape('cube');
             updateCutterTransform();
-
-            reticle = new THREE.Mesh(
-                new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2),
-                new THREE.MeshBasicMaterial({ color: 0xffffff })
-            );
+            reticle = new THREE.Mesh(new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff }));
             reticle.matrixAutoUpdate = false;
             reticle.visible = false;
             scene.add(reticle); 
-
             window.addEventListener('resize', onWindowResize);
             renderer.domElement.addEventListener('pointermove', onPointerMove); 
             renderer.domElement.addEventListener('pointerdown', onPointerDown); 
-            
-            if ('xr' in navigator) {
+            if (isWebXRAvailable) {
                 renderer.xr.addEventListener('sessionstart', onSessionStart);
                 renderer.xr.addEventListener('sessionend', onSessionEnd);
             }
             renderer.setAnimationLoop(render); 
-        } catch (e) {
-            console.error(e);
-        }
+        } catch (e) { console.error(e); }
     }
 
     function onSessionStart() {
         contentGroup.scale.set(0.05, 0.05, 0.05);
         scene.background = null; 
     }
-
     function onSessionEnd() {
         contentGroup.scale.set(1, 1, 1);
         contentGroup.position.set(0, 0, 0);
@@ -403,14 +409,11 @@
         hitTestSource = null;
         hitTestSourceRequested = false;
     }
-
     function setupCutterSystem() {
         cutterGroup = new THREE.Group();
         contentGroup.add(cutterGroup); 
         const planeGeo = new THREE.PlaneGeometry(12, 12);
-        const planeMat = new THREE.MeshBasicMaterial({
-            color: 0x007bff, opacity: 0.2, transparent: true, side: THREE.DoubleSide, depthWrite: false
-        });
+        const planeMat = new THREE.MeshBasicMaterial({ color: 0x007bff, opacity: 0.2, transparent: true, side: THREE.DoubleSide, depthWrite: false });
         visualPlane = new THREE.Mesh(planeGeo, planeMat);
         visualPlane.rotation.x = -Math.PI / 2;
         const edges = new THREE.EdgesGeometry(planeGeo);
@@ -423,7 +426,6 @@
         invisibleCutterBrush = new Brush(boxGeo, new THREE.MeshBasicMaterial({ visible: false }));
         cutterGroup.add(invisibleCutterBrush);
     }
-
     function createShape(type) {
         let geometry;
         switch(type) {
@@ -443,12 +445,10 @@
         createLabels(geometry, currentShapeBrush); 
         updateUI(); 
     }
-
     function updateUI() {
         const undoBtn = document.getElementById('undo-btn');
         if (undoBtn) undoBtn.disabled = (historyStack.length === 0);
     }
-
     function createLabels(geometry, mesh) {
         vertexLabels.forEach(l => l.element.remove());
         vertexLabels = [];
@@ -480,23 +480,17 @@
             vertexLabels.push({ element: div, localPos: localPos.clone(), mesh: mesh });
         });
     }
-
     function updateLabels() {
         if (vertexLabels.length === 0) return;
         const isVisible = document.getElementById('labels-visible-check').checked;
-        if (!isVisible) {
-             vertexLabels.forEach(l => l.element.style.display = 'none');
-             return;
-        }
+        if (!isVisible) { vertexLabels.forEach(l => l.element.style.display = 'none'); return; }
         const widthHalf = window.innerWidth / 2;
         const heightHalf = window.innerHeight / 2;
         vertexLabels.forEach(label => {
             const worldPos = label.localPos.clone().applyMatrix4(label.mesh.matrixWorld);
             const pos = worldPos.clone();
             pos.project(camera);
-            if (pos.z > 1) {
-                label.element.style.display = 'none';
-            } else {
+            if (pos.z > 1) { label.element.style.display = 'none'; } else {
                 label.element.style.display = 'block';
                 const x = (pos.x * widthHalf) + widthHalf;
                 const y = -(pos.y * heightHalf) + heightHalf;
@@ -505,7 +499,6 @@
             }
         });
     }
-
     function createSnapPoints(geometry, mesh) {
         helperGroup.clear();
         interactionObjects = [];
@@ -526,9 +519,7 @@
             interactionObjects.push(sphere);
         }
         const posAttr = geometry.attributes.position;
-        for(let i=0; i<posAttr.count; i++){
-             addSnapSphere(new THREE.Vector3().fromBufferAttribute(posAttr, i), 'vertex');
-        }
+        for(let i=0; i<posAttr.count; i++){ addSnapSphere(new THREE.Vector3().fromBufferAttribute(posAttr, i), 'vertex'); }
         const edgesGeo = new THREE.EdgesGeometry(geometry, 20); 
         const edgePos = edgesGeo.attributes.position;
         for (let i = 0; i < edgePos.count; i += 2) {
@@ -539,7 +530,6 @@
             addSnapSphere(start.clone().lerp(end, 2/3), 'sub');
         }
     }
-
     function onPointerMove(event) {
         if (currentMode !== 'points') return;
         if (renderer.xr.isPresenting) return; 
@@ -562,8 +552,7 @@
             }
         }
     }
-
-    if ('xr' in navigator) {
+    if (isWebXRAvailable) {
         const controller = renderer.xr.getController(0);
         controller.addEventListener('select', function() {
             if (reticle.visible) {
@@ -573,20 +562,17 @@
         });
         scene.add(controller);
     }
-
     function onPointerDown(event) {
         if (!renderer.xr.isPresenting && currentMode === 'points') {
             if (!hoveredObject) return; 
             addSelectedPoint(hoveredObject.userData.pos);
         }
     }
-
     function updateMouse(event) {
         const rect = renderer.domElement.getBoundingClientRect();
         mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
         mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     }
-
     function addSelectedPoint(pos) {
         selectedPoints.push(pos.clone());
         const markerGeo = new THREE.SphereGeometry(0.18, 16, 16); 
@@ -598,20 +584,17 @@
         updatePointCountUI();
         if (selectedPoints.length >= 3) alignCutterToPoints();
     }
-
     function clearPoints() {
         selectedPoints = [];
         pointMarkers.forEach(m => contentGroup.remove(m));
         pointMarkers = [];
         updatePointCountUI();
     }
-    
     function updatePointCountUI() {
         const el = document.getElementById('points-count-display');
         el.innerText = `選択数: ${selectedPoints.length}点`;
         el.style.color = selectedPoints.length >= 3 ? '#28a745' : '#007bff';
     }
-
     function alignCutterToPoints() {
         if (selectedPoints.length < 3) return;
         const p1 = selectedPoints[0];
@@ -628,23 +611,17 @@
         cutterGroup.setRotationFromQuaternion(quaternion);
         cutterGroup.updateMatrixWorld();
     }
-
     function updateCutterTransform() {
         if (currentMode !== 'slider') return; 
         const y = parseFloat(document.getElementById('cut-y').value);
         const rx = parseFloat(document.getElementById('cut-rx').value);
         const rz = parseFloat(document.getElementById('cut-rz').value);
         cutterGroup.position.set(0, y, 0);
-        cutterGroup.rotation.set(
-            THREE.MathUtils.degToRad(rx),
-            0,
-            THREE.MathUtils.degToRad(rz)
-        );
+        cutterGroup.rotation.set(THREE.MathUtils.degToRad(rx), 0, THREE.MathUtils.degToRad(rz));
         document.getElementById('val-y').innerText = y.toFixed(2);
         document.getElementById('val-rx').innerText = rx + "°";
         document.getElementById('val-rz').innerText = rz + "°";
     }
-
     function performCut(inverse) {
         if (!currentShapeBrush) return;
         const historyGeometry = currentShapeBrush.geometry.clone();
@@ -654,7 +631,6 @@
             invisibleCutterBrush.scale.y = inverse ? -1 : 1;
             invisibleCutterBrush.updateMatrixWorld();
             const resultBrush = evaluator.evaluate(currentShapeBrush, invisibleCutterBrush, SUBTRACTION);
-            
             contentGroup.remove(currentShapeBrush);
             currentShapeBrush = resultBrush;
             updateMaterial();
@@ -665,12 +641,9 @@
             clearPoints();
             helperGroup.visible = false;
             createLabels(currentShapeBrush.geometry, currentShapeBrush);
-        } catch (err) {
-            console.error("Cut failed:", err);
-        }
+        } catch (err) { console.error("Cut failed:", err); }
         updateUI();
     }
-
     function undo() {
         if (historyStack.length === 0) return;
         const state = historyStack.pop();
@@ -680,7 +653,6 @@
         currentShapeBrush.castShadow = true;
         currentShapeBrush.receiveShadow = true;
         contentGroup.add(currentShapeBrush);
-        
         if (historyStack.length === 0) { 
              createShape(document.getElementById('shape-select').value);
         } else {
@@ -689,7 +661,6 @@
         }
         updateUI();
     }
-
     function updateMaterial() {
         const isWire = document.getElementById('wireframe-check').checked;
         if (isWire) {
@@ -698,7 +669,6 @@
             currentShapeBrush.material = materialStandard;
         }
     }
-
     document.getElementById('grid-visible-check').addEventListener('change', (e) => {
         gridHelper.visible = e.target.checked;
         axesHelper.visible = e.target.checked;
@@ -711,25 +681,27 @@
         visualPlane.visible = e.target.checked;
     });
     document.getElementById('labels-visible-check').addEventListener('change', (e) => {
-        if(e.target.checked) {
-            createLabels(currentShapeBrush.geometry, currentShapeBrush);
-        } else {
-            vertexLabels.forEach(l => l.element.style.display = 'none');
-        }
+        if(e.target.checked) { createLabels(currentShapeBrush.geometry, currentShapeBrush); } else { vertexLabels.forEach(l => l.element.style.display = 'none'); }
     });
-
     window.switchMode = function(mode) {
         currentMode = mode;
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.mode-content').forEach(c => c.classList.remove('active'));
-        
         if(mode === 'ar') {
-            if(arButton) arButton.style.display = 'block';
+            const d = document.getElementById('ar-debug-info');
+            if (d) d.innerHTML = (arMode === 'ios') ? "モード: iOS Quick Look (有効)" : (arMode === 'webxr') ? "モード: WebXR (有効)" : "AR非対応の端末です。";
+            if (arMode === 'webxr' && webXrButton) webXrButton.style.display = 'block';
+            if (arMode === 'ios') { 
+                document.getElementById('ios-ar-btn').style.display = 'block'; 
+                document.getElementById('ios-hint').style.display = 'block';
+            }
             document.querySelector('.tab-btn:nth-child(3)').classList.add('active');
             document.getElementById('mode-ar').classList.add('active');
             helperGroup.visible = false;
         } else {
-            if(arButton) arButton.style.display = 'none'; 
+            if (webXrButton) webXrButton.style.display = 'none'; 
+            document.getElementById('ios-ar-btn').style.display = 'none';
+            document.getElementById('ios-hint').style.display = 'none';
             if(mode === 'slider') {
                 document.querySelector('.tab-btn:nth-child(1)').classList.add('active');
                 document.getElementById('mode-slider').classList.add('active');
@@ -744,40 +716,29 @@
             }
         }
     };
-
     function onWindowResize() {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
     }
-
     function render(timestamp, frame) {
         if (renderer.xr.isPresenting) {
-            if (frame) {
-                const referenceSpace = renderer.xr.getReferenceSpace();
+            if (frame && hitTestSourceRequested === false) {
                 const session = renderer.xr.getSession();
-                if (hitTestSourceRequested === false) {
-                    session.requestReferenceSpace('viewer').then(function (referenceSpace) {
-                        session.requestHitTestSource({ space: referenceSpace }).then(function (source) {
-                            hitTestSource = source;
-                        });
-                    });
-                    session.addEventListener('end', function () {
-                        hitTestSourceRequested = false;
-                        hitTestSource = null;
-                    });
-                    hitTestSourceRequested = true;
-                }
-                if (hitTestSource) {
-                    const hitTestResults = frame.getHitTestResults(hitTestSource);
-                    if (hitTestResults.length > 0) {
-                        const hit = hitTestResults[0];
-                        reticle.visible = true;
-                        reticle.matrix.fromArray(hit.getPose(referenceSpace).transform.matrix);
-                    } else {
-                        reticle.visible = false;
-                    }
-                }
+                session.requestReferenceSpace('viewer').then(function (referenceSpace) {
+                    session.requestHitTestSource({ space: referenceSpace }).then(function (source) { hitTestSource = source; });
+                });
+                session.addEventListener('end', function () { hitTestSourceRequested = false; hitTestSource = null; });
+                hitTestSourceRequested = true;
+            }
+            if (hitTestSource && frame) {
+                const hitTestResults = frame.getHitTestResults(hitTestSource);
+                if (hitTestResults.length > 0) {
+                    const hit = hitTestResults[0];
+                    const referenceSpace = renderer.xr.getReferenceSpace();
+                    reticle.visible = true;
+                    reticle.matrix.fromArray(hit.getPose(referenceSpace).transform.matrix);
+                } else { reticle.visible = false; }
             }
         } else {
             controls.update();
