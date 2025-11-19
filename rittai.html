@@ -17,6 +17,26 @@
 
         .vertex-label {
             position: absolute;
+            background: rgba(255, 255, 255, 0.85);<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>立体切断シミュレーター v18</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: "Helvetica Neue", Arial, sans-serif; background-color: #f0f0f0; }
+        /* touch-action: none でスマホでのスクロール干渉を防止 */
+        #canvas-container { width: 100vw; height: 100vh; position: relative; touch-action: none; }
+        
+        #loading-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #fff; z-index: 9999; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; color: #333;
+        }
+        #error-message { color: red; margin-top: 10px; padding: 20px; text-align: center; display: none; }
+
+        .vertex-label {
+            position: absolute;
             background: rgba(255, 255, 255, 0.85);
             border: 1px solid #333;
             border-radius: 50%;
@@ -29,7 +49,7 @@
             display: none; 
         }
 
-        /* UIパネルスタイル */
+        /* UIパネル */
         #ui-panel {
             background: rgba(255, 255, 255, 0.95);
             padding: 15px;
@@ -40,7 +60,7 @@
             transition: transform 0.3s ease;
         }
 
-        /* PC用レイアウト */
+        /* PC用 */
         @media (min-width: 601px) {
             #ui-panel {
                 position: absolute; top: 10px; left: 10px;
@@ -51,7 +71,7 @@
             #panel-header-mobile { display: none; }
         }
 
-        /* スマホ用レイアウト */
+        /* スマホ用 */
         @media (max-width: 600px) {
             #ui-panel {
                 position: absolute; bottom: 0; left: 0;
@@ -375,7 +395,10 @@
             reticle.matrixAutoUpdate = false; reticle.visible = false; scene.add(reticle); 
             window.addEventListener('resize', onWindowResize);
             renderer.domElement.addEventListener('pointermove', onPointerMove); 
+            
+            // 重要な変更: PointerDownイベントの登録
             renderer.domElement.addEventListener('pointerdown', onPointerDown); 
+            
             if (isWebXRAvailable) {
                 renderer.xr.addEventListener('sessionstart', onSessionStart);
                 renderer.xr.addEventListener('sessionend', onSessionEnd);
@@ -473,27 +496,58 @@
 
     function onPointerMove(event) {
         if (currentMode !== 'points') return; if (renderer.xr.isPresenting) return; 
-        updateMouse(event); raycaster.setFromCamera(mouse, camera);
-        const intersects = raycaster.intersectObjects(interactionObjects);
-        if (intersects.length > 0) {
-            const obj = intersects[0].object;
-            if (hoveredObject !== obj) {
-                if (hoveredObject) hoveredObject.material.color.setHex(hoveredObject.userData.originalColor);
-                hoveredObject = obj; hoveredObject.material.color.setHex(obj.userData.hoverColor); document.body.style.cursor = 'pointer';
-            }
-        } else {
-            if (hoveredObject) { hoveredObject.material.color.setHex(hoveredObject.userData.originalColor); hoveredObject = null; document.body.style.cursor = 'default'; }
+        // スマホのタッチ操作ではhoveredObjectを更新しない（カーソルがないため）
+        // PCのマウス操作のときのみ視覚的なフィードバックを行う
+        if (event.pointerType === 'mouse') {
+             updateMouse(event); raycaster.setFromCamera(mouse, camera);
+             const intersects = raycaster.intersectObjects(interactionObjects);
+             if (intersects.length > 0) {
+                 const obj = intersects[0].object;
+                 if (hoveredObject !== obj) {
+                     if (hoveredObject) hoveredObject.material.color.setHex(hoveredObject.userData.originalColor);
+                     hoveredObject = obj; hoveredObject.material.color.setHex(obj.userData.hoverColor); document.body.style.cursor = 'pointer';
+                 }
+             } else {
+                 if (hoveredObject) { hoveredObject.material.color.setHex(hoveredObject.userData.originalColor); hoveredObject = null; document.body.style.cursor = 'default'; }
+             }
         }
     }
+
+    // --- 修正されたPointerDownハンドラ (タッチ対応) ---
+    function onPointerDown(event) {
+        if (renderer.xr.isPresenting) return; 
+        if (currentMode !== 'points') return;
+
+        // 1. 座標の取得 (PointerEventは汎用的だが念のため正規化)
+        const rect = renderer.domElement.getBoundingClientRect();
+        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+        // 2. クリック/タップした瞬間にRaycasterを飛ばす (Hover状態に依存しない)
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(interactionObjects);
+
+        // 3. 当たり判定があれば選択
+        if (intersects.length > 0) {
+            // 一番手前のオブジェクトを採用
+            const hitObj = intersects[0].object;
+            addSelectedPoint(hitObj.userData.pos);
+            
+            // 視覚フィードバック（一瞬光らせるなど）
+            hitObj.material.color.setHex(0x00ff00);
+            setTimeout(() => {
+                if(hitObj) hitObj.material.color.setHex(hitObj.userData.originalColor);
+            }, 200);
+        }
+    }
+
     if (isWebXRAvailable) {
         const controller = renderer.xr.getController(0);
         controller.addEventListener('select', function() {
             if (reticle.visible) { reticle.matrix.decompose(contentGroup.position, contentGroup.quaternion, contentGroup.scale); contentGroup.scale.set(0.05, 0.05, 0.05); }
         }); scene.add(controller);
     }
-    function onPointerDown(event) {
-        if (!renderer.xr.isPresenting && currentMode === 'points') { if (!hoveredObject) return; addSelectedPoint(hoveredObject.userData.pos); }
-    }
+
     function updateMouse(event) {
         const rect = renderer.domElement.getBoundingClientRect();
         mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1; mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
