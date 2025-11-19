@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>立体切断シミュレーター v19</title>
+    <title>立体切断シミュレーター v20</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: "Helvetica Neue", Arial, sans-serif; background-color: #f0f0f0; }
         #canvas-container { width: 100vw; height: 100vh; position: relative; touch-action: none; }
@@ -29,7 +29,6 @@
             display: none; 
         }
 
-        /* UIパネル */
         #ui-panel {
             background: rgba(255, 255, 255, 0.95);
             padding: 15px;
@@ -40,7 +39,6 @@
             transition: transform 0.3s ease;
         }
 
-        /* PC用 */
         @media (min-width: 601px) {
             #ui-panel {
                 position: absolute; top: 10px; left: 10px;
@@ -51,7 +49,6 @@
             #panel-header-mobile { display: none; }
         }
 
-        /* スマホ用 */
         @media (max-width: 600px) {
             #ui-panel {
                 position: absolute; bottom: 0; left: 0;
@@ -247,7 +244,6 @@
     if(overlay) overlay.style.display = 'none';
     document.getElementById('ui-panel').style.display = 'block';
 
-    // スマホ用初期化
     if (window.innerWidth <= 600) {
         document.getElementById('ui-panel').classList.add('closed');
     } else {
@@ -306,7 +302,6 @@
     if (isWebXRAvailable) renderer.xr.enabled = true; 
     container.appendChild(renderer.domElement);
 
-    // WebXR Button
     if (arMode === 'webxr') {
         try {
             const webXrButton = ARButton.createButton(renderer, { 
@@ -319,7 +314,7 @@
         } catch(e) {}
     }
 
-    // --- iOS Export 処理 (修正版) ---
+    // --- iOS Export 処理 (向き修正版) ---
     document.getElementById('ios-ar-btn').addEventListener('click', async () => {
         if (!currentShapeBrush) return;
         const btn = document.getElementById('ios-ar-btn');
@@ -329,27 +324,22 @@
         try {
             const exporter = new USDZExporter();
             
-            // ★重要修正: Brushのままではなく、現在のGeometryから純粋なMeshを再生成する
-            // これによりCSG計算の履歴などのゴミを取り除き、見たままの形を確定させる
-            currentShapeBrush.updateMatrixWorld(); // 念のため更新
-            
-            // 現在のジオメトリをディープクローン
+            // 現在のジオメトリをコピー
+            currentShapeBrush.updateMatrixWorld();
             const exportGeometry = currentShapeBrush.geometry.clone();
             
-            // 新しい標準メッシュを作成 (BrushではなくMesh)
+            // メッシュ作成
             const exportMesh = new THREE.Mesh(
                 exportGeometry, 
                 new THREE.MeshStandardMaterial({
                     color: 0x66ccff, 
-                    roughness: 0.2,
-                    metalness: 0.0
+                    roughness: 0.4,
+                    metalness: 0.1
                 })
             );
 
-            // サイズ調整 (卓上サイズに)
+            // サイズ調整のみ行い、回転はさせない(Y-upを維持)
             exportMesh.scale.set(0.05, 0.05, 0.05);
-            // USDZの座標系に合わせて回転
-            exportMesh.rotation.x = -Math.PI / 2;
             exportMesh.updateMatrixWorld();
 
             const arraybuffer = await exporter.parse(exportMesh);
