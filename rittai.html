@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>立体切断シミュレーター v11 (修正版)</title>
+    <title>立体切断シミュレーター v12 (修正完了版)</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: "Helvetica Neue", Arial, sans-serif; background-color: #f0f0f0; }
         #canvas-container { width: 100vw; height: 100vh; position: relative; }
@@ -82,7 +82,7 @@
         .value-display { float: right; font-weight: normal; font-family: monospace; }
         .hint-text { font-size: 12px; color: #666; margin-top: -2px; margin-bottom: 8px; line-height: 1.4; }
         
-        /* ARボタンのスタイル制御 */
+        /* ARボタンのスタイル制御（初期は非表示） */
         #ar-button-container { display: none; } 
     </style>
     
@@ -91,6 +91,9 @@
             const overlay = document.getElementById('loading-overlay');
             const msg = document.getElementById('error-message');
             if(overlay && msg) {
+                // 特定の警告は無視する（AR非対応環境での警告など）
+                if (e.message.includes('xr') || e.message.includes('XR')) return;
+                
                 overlay.style.display = 'flex';
                 msg.style.display = 'block';
                 msg.innerHTML = '<strong>エラーが発生しました:</strong><br>' + e.message + '<br><br>ページを再読み込みしてみてください。';
@@ -110,7 +113,7 @@
 </div>
 
 <div id="ui-panel">
-    <h2>立体切断シミュレーター v11</h2>
+    <h2>立体切断シミュレーター v12</h2>
 
     <div class="control-group">
         <label>図形選択</label>
@@ -164,7 +167,7 @@
                 2. スマホカメラで床や机を映す<br>
                 3. 白いリングが出たら画面をタップ<br>
             </p>
-            <p style="font-size:12px; color:#d63384;">※対応スマホでのみ動作します。</p>
+            <p style="font-size:12px; color:#d63384;">※カメラ付きの対応デバイスが必要です。</p>
         </div>
     </div>
 
@@ -227,14 +230,20 @@
     renderer.xr.enabled = true; 
     container.appendChild(renderer.domElement);
 
-    // ARボタン作成
-    const arButton = ARButton.createButton(renderer, { 
-        requiredFeatures: ['hit-test'],
-        optionalFeatures: ['dom-overlay'],
-        domOverlay: { root: document.getElementById('ui-panel') } 
-    });
-    document.body.appendChild(arButton);
-    arButton.style.display = 'none'; // 初期は隠す
+    // ARボタン作成 (カメラがないPCでもエラーにならないようtry-catchで囲むか、ARButtonの内部処理に任せる)
+    // ARButtonはWebXR非対応環境ではボタンを生成しないだけなので安全です。
+    let arButton;
+    try {
+        arButton = ARButton.createButton(renderer, { 
+            requiredFeatures: ['hit-test'],
+            optionalFeatures: ['dom-overlay'],
+            domOverlay: { root: document.getElementById('ui-panel') } 
+        });
+        document.body.appendChild(arButton);
+        arButton.style.display = 'none'; // 初期は隠す
+    } catch(e) {
+        console.log("WebXR not supported or error creating AR button", e);
+    }
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -324,7 +333,7 @@
             renderer.setAnimationLoop(render); 
         } catch (e) {
             console.error(e);
-            throw e; // エラーハンドラに渡す
+            throw e; 
         }
     }
 
@@ -386,8 +395,17 @@
         historyStack = [];
         createSnapPoints(geometry, currentShapeBrush);
         createLabels(geometry, currentShapeBrush); 
-        updateUI();
+        updateUI(); // ここでエラーが出ていました
     }
+
+    // --- 修正: 復活させた updateUI 関数 ---
+    function updateUI() {
+        const undoBtn = document.getElementById('undo-btn');
+        if (undoBtn) {
+            undoBtn.disabled = (historyStack.length === 0);
+        }
+    }
+    // ------------------------------------
 
     function createLabels(geometry, mesh) {
         vertexLabels.forEach(l => l.element.remove());
@@ -667,12 +685,12 @@
         
         // ARボタンの表示制御
         if(mode === 'ar') {
-            arButton.style.display = 'block';
+            if(arButton) arButton.style.display = 'block';
             document.querySelector('.tab-btn:nth-child(3)').classList.add('active');
             document.getElementById('mode-ar').classList.add('active');
             helperGroup.visible = false;
         } else {
-            arButton.style.display = 'none'; 
+            if(arButton) arButton.style.display = 'none'; 
             if(mode === 'slider') {
                 document.querySelector('.tab-btn:nth-child(1)').classList.add('active');
                 document.getElementById('mode-slider').classList.add('active');
