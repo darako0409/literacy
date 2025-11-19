@@ -2,24 +2,25 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>立体図形切断シミュレーター v7</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>立体切断シミュレーター v8 (AR対応)</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: "Helvetica Neue", Arial, sans-serif; background-color: #f0f0f0; }
         #canvas-container { width: 100vw; height: 100vh; position: relative; }
         
-        /* 頂点ラベル用スタイル */
+        /* 頂点ラベル */
         .vertex-label {
             position: absolute;
-            background: rgba(255, 255, 255, 0.8);
+            background: rgba(255, 255, 255, 0.85);
             border: 1px solid #333;
             border-radius: 50%;
             width: 20px; height: 20px;
             text-align: center; line-height: 20px;
             font-size: 12px; font-weight: bold; color: #000;
-            pointer-events: none; /* マウス操作を邪魔しない */
+            pointer-events: none;
             z-index: 5;
-            transform: translate(-50%, -50%); /* 中心合わせ */
-            display: none; /* 初期状態はJSで制御 */
+            transform: translate(-50%, -50%);
+            display: none; 
         }
 
         /* UIパネル */
@@ -28,10 +29,18 @@
             width: 340px; background: rgba(255, 255, 255, 0.95);
             padding: 15px; border-radius: 8px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-            max-height: 95vh; overflow-y: auto;
+            max-height: 80vh; overflow-y: auto; /* ARボタンと被らないように高さを制限 */
             z-index: 10;
             font-size: 14px;
         }
+        /* スマホでの表示調整 */
+        @media (max-width: 600px) {
+            #ui-panel {
+                width: 90%; left: 5%; top: 10px;
+                max-height: 60vh;
+            }
+        }
+
         h2 { margin-top: 0; font-size: 18px; color: #333; border-bottom: 2px solid #007bff; padding-bottom: 8px; margin-bottom: 15px;}
         
         .tab-container { display: flex; margin-bottom: 15px; border-bottom: 1px solid #ddd; }
@@ -72,6 +81,7 @@
             background: rgba(200, 0, 0, 0.9); color: white;
             padding: 10px; border-radius: 5px; font-size: 12px;
             max-width: 400px; display: none; pointer-events: none;
+            z-index: 999;
         }
     </style>
 </head>
@@ -84,7 +94,7 @@
 <div id="error-log"></div>
 
 <div id="ui-panel">
-    <h2>立体切断シミュレーター v7</h2>
+    <h2>立体切断シミュレーター v8 (AR)</h2>
 
     <div class="control-group">
         <label>図形選択</label>
@@ -100,7 +110,7 @@
 
     <div class="tab-container">
         <div class="tab-btn active" onclick="switchMode('slider')">① スライダー</div>
-        <div class="tab-btn" onclick="switchMode('points')">② 点指定(厳密)</div>
+        <div class="tab-btn" onclick="switchMode('points')">② 点指定</div>
     </div>
 
     <div id="mode-slider" class="mode-content active">
@@ -124,8 +134,7 @@
         <div class="control-group">
             <label>切断点の選択</label>
             <p class="hint-text">
-                ● <b>頂点</b> (大)<br>
-                ● <b>中点・3等分点</b> (小)
+                ● <b>頂点</b> (大) / ● <b>中点・3等分点</b> (小)
             </p>
             <div style="display:flex; gap:5px;">
                 <button id="clear-points-btn" class="danger" style="font-size:12px;">選択クリア</button>
@@ -177,6 +186,7 @@
 
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { ARButton } from 'three/addons/webxr/ARButton.js';
     import { SUBTRACTION, Brush, Evaluator } from 'three-bvh-csg';
 
     // --- 1. シーン設定 ---
@@ -188,11 +198,20 @@
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
     camera.position.set(6, 5, 8);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); // alpha:trueで背景透過(AR用)
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.xr.enabled = true; // WebXR有効化
     container.appendChild(renderer.domElement);
+
+    // ARボタンの追加 (DOM Overlay対応)
+    const arButton = ARButton.createButton(renderer, { 
+        requiredFeatures: ['hit-test'],
+        optionalFeatures: ['dom-overlay'],
+        domOverlay: { root: document.getElementById('ui-panel') } // UIパネルをAR上に残す
+    });
+    document.body.appendChild(arButton);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -210,6 +229,10 @@
 
 
     // --- グローバル変数 ---
+    // AR用に、すべてのオブジェクトをまとめるグループを作る
+    let contentGroup = new THREE.Group();
+    scene.add(contentGroup);
+
     let currentShapeBrush;    
     let materialStandard;     
     let historyStack = [];    
@@ -227,13 +250,16 @@
     let hoveredObject = null;    
     
     let helperGroup = new THREE.Group();
-    scene.add(helperGroup);
+    contentGroup.add(helperGroup); // コンテンツグループに追加
 
-    // ラベル管理用
-    let vertexLabels = []; // { element: HTMLDivElement, position: THREE.Vector3 } の配列
-
+    let vertexLabels = []; 
     let gridHelper, axesHelper;
     const evaluator = new Evaluator();
+
+    // AR用ヒットテスト関連
+    let reticle;
+    let hitTestSource = null;
+    let hitTestSourceRequested = false;
 
     materialStandard = new THREE.MeshStandardMaterial({ 
         color: 0x66ccff, 
@@ -250,27 +276,67 @@
     function init() {
         try {
             gridHelper = new THREE.GridHelper(20, 20, 0xcccccc, 0xe5e5e5);
-            scene.add(gridHelper);
+            contentGroup.add(gridHelper); // 床もコンテンツグループへ
+            
             axesHelper = new THREE.AxesHelper(5);
-            scene.add(axesHelper);
+            contentGroup.add(axesHelper);
 
             setupCutterSystem();
             createShape('cube');
             updateCutterTransform();
 
+            // AR用レティクル（照準）の作成
+            reticle = new THREE.Mesh(
+                new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2),
+                new THREE.MeshBasicMaterial({ color: 0xffffff }) // 白いリング
+            );
+            reticle.matrixAutoUpdate = false;
+            reticle.visible = false;
+            scene.add(reticle); // レティクルはシーン直下
+
             window.addEventListener('resize', onWindowResize);
+            // マウスイベントはRendererに対して行う
             renderer.domElement.addEventListener('pointermove', onPointerMove); 
             renderer.domElement.addEventListener('pointerdown', onPointerDown); 
+            
+            // ARセッション開始時のスケール調整
+            renderer.xr.addEventListener('sessionstart', onSessionStart);
+            renderer.xr.addEventListener('sessionend', onSessionEnd);
 
-            animate();
+            renderer.setAnimationLoop(render); // animateの代わりにsetAnimationLoopを使用
         } catch (e) {
             console.error(e);
         }
     }
 
+    function onSessionStart() {
+        // ARモードに入ったら、モデル全体を小さくする（卓上サイズ）
+        // Three.jsの1単位=1メートル。今のCubeはサイズ3(3m)。
+        // これを0.05倍すれば、15cmくらいになる。
+        contentGroup.scale.set(0.05, 0.05, 0.05);
+        
+        // グリッドなどはARでは邪魔かもしれないので必要に応じて制御
+        // 今回はそのまま表示（ユーザーがチェックボックスで消せるので）
+        
+        // 背景を透過に
+        scene.background = null; 
+    }
+
+    function onSessionEnd() {
+        // 戻ったらサイズを戻す
+        contentGroup.scale.set(1, 1, 1);
+        contentGroup.position.set(0, 0, 0);
+        contentGroup.rotation.set(0, 0, 0);
+        scene.background = new THREE.Color(0xfafafa);
+        
+        reticle.visible = false;
+        hitTestSource = null;
+        hitTestSourceRequested = false;
+    }
+
     function setupCutterSystem() {
         cutterGroup = new THREE.Group();
-        scene.add(cutterGroup);
+        contentGroup.add(cutterGroup); // コンテンツグループに追加
 
         const planeGeo = new THREE.PlaneGeometry(12, 12);
         const planeMat = new THREE.MeshBasicMaterial({
@@ -301,85 +367,74 @@
             case 'cylinder': geometry = new THREE.CylinderGeometry(1.5, 1.5, 4, 32); break;
         }
 
-        if (currentShapeBrush) scene.remove(currentShapeBrush);
+        if (currentShapeBrush) contentGroup.remove(currentShapeBrush);
         
         currentShapeBrush = new Brush(geometry, materialStandard);
         currentShapeBrush.castShadow = true;
         currentShapeBrush.receiveShadow = true;
-        scene.add(currentShapeBrush);
+        contentGroup.add(currentShapeBrush);
         
         historyStack = [];
         createSnapPoints(geometry, currentShapeBrush);
-        createLabels(geometry, currentShapeBrush); // ラベル生成
+        createLabels(geometry, currentShapeBrush); 
         updateUI();
     }
 
-    // --- ラベル生成システム ---
+    // --- ラベル生成 ---
     function createLabels(geometry, mesh) {
-        // 既存ラベルを削除
         vertexLabels.forEach(l => l.element.remove());
         vertexLabels = [];
-
         if (!document.getElementById('labels-visible-check').checked) return;
-
         const posAttr = geometry.attributes.position;
         const uniquePoints = [];
         const threshold = 0.01;
-
-        // 重複しない頂点を抽出
         for (let i = 0; i < posAttr.count; i++) {
             const v = new THREE.Vector3().fromBufferAttribute(posAttr, i);
             let exists = false;
             for (let p of uniquePoints) {
-                if (p.distanceTo(v) < threshold) {
-                    exists = true;
-                    break;
-                }
+                if (p.distanceTo(v) < threshold) { exists = true; break; }
             }
             if (!exists) uniquePoints.push(v);
         }
-
-        // 上から順、あるいは単純なソートで記号を振る（Y座標が高い順、同じならX順など）
         uniquePoints.sort((a, b) => {
-            if (Math.abs(b.y - a.y) > 0.1) return b.y - a.y; // Y降順
-            if (Math.abs(b.x - a.x) > 0.1) return a.x - b.x; // X昇順
+            if (Math.abs(b.y - a.y) > 0.1) return b.y - a.y; 
+            if (Math.abs(b.x - a.x) > 0.1) return a.x - b.x; 
             return a.z - b.z;
         });
-
         const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         uniquePoints.forEach((localPos, index) => {
             if (index >= chars.length) return;
-
             const labelText = chars[index];
             const div = document.createElement('div');
             div.className = 'vertex-label';
             div.innerText = labelText;
             labelsContainer.appendChild(div);
-
-            // ワールド座標に変換して保持
-            const worldPos = localPos.clone().applyMatrix4(mesh.matrixWorld);
-            vertexLabels.push({ element: div, position: worldPos });
+            // ワールド座標ではなく、メッシュローカル座標を保持し、毎フレーム計算する
+            vertexLabels.push({ element: div, localPos: localPos.clone(), mesh: mesh });
         });
     }
 
-    // アニメーションループ内でラベル位置を更新
     function updateLabels() {
         if (vertexLabels.length === 0) return;
-        
         const isVisible = document.getElementById('labels-visible-check').checked;
         if (!isVisible) {
              vertexLabels.forEach(l => l.element.style.display = 'none');
              return;
         }
 
+        // ARモード中はラベル位置がずれる可能性が高い（HTML Overlayの追従性）が、
+        // renderer.xr.isPresenting で判定可能
+        // 今回はシンプルに通常時と同様の計算を行う
+        
         const widthHalf = window.innerWidth / 2;
         const heightHalf = window.innerHeight / 2;
 
         vertexLabels.forEach(label => {
-            const pos = label.position.clone();
-            pos.project(camera); // スクリーン座標変換 (-1 to 1)
+            // メッシュの現在のワールド行列を使って座標変換
+            const worldPos = label.localPos.clone().applyMatrix4(label.mesh.matrixWorld);
+            const pos = worldPos.clone();
+            pos.project(camera);
 
-            // カメラの後ろにある場合は隠す
             if (pos.z > 1) {
                 label.element.style.display = 'none';
             } else {
@@ -392,7 +447,7 @@
         });
     }
 
-    // --- スナップポイント生成 (既存) ---
+    // --- スナップポイント ---
     function createSnapPoints(geometry, mesh) {
         helperGroup.clear();
         interactionObjects = [];
@@ -411,9 +466,12 @@
             const mat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: opacity });
             const sphere = new THREE.Mesh(geo, mat);
             
-            const worldPos = pos.clone().applyMatrix4(mesh.matrixWorld);
-            sphere.position.copy(worldPos);
-            sphere.userData = { isSnapPoint: true, originalColor: color, hoverColor: 0xffaa00, pos: worldPos.clone() };
+            // グループ内の相対位置として配置するが、meshはcontentGroup直下。
+            // sphereはhelperGroup(contentGroupの子)に入れる。
+            // meshは原点にあるはずなので、posそのままでOK
+            sphere.position.copy(pos);
+
+            sphere.userData = { isSnapPoint: true, originalColor: color, hoverColor: 0xffaa00, pos: pos.clone() };
             helperGroup.add(sphere);
             interactionObjects.push(sphere);
         }
@@ -436,6 +494,9 @@
     // --- インタラクション ---
     function onPointerMove(event) {
         if (currentMode !== 'points') return;
+        // ARモード中はポインター操作が難しいので除外、またはAR用のControllerが必要だが今回は割愛
+        if (renderer.xr.isPresenting) return; 
+
         updateMouse(event);
         raycaster.setFromCamera(mouse, camera);
         const intersects = raycaster.intersectObjects(interactionObjects);
@@ -457,10 +518,30 @@
         }
     }
 
+    // ARでのタップ処理（設置）
+    function onSelect() {
+        if (reticle.visible) {
+            // レティクルの位置にcontentGroupを移動
+            // positionはレティクルのワールド座標を設定
+            reticle.matrix.decompose(contentGroup.position, contentGroup.quaternion, contentGroup.scale);
+            
+            // スケールは小さいまま維持したいので上書き
+            contentGroup.scale.set(0.05, 0.05, 0.05); 
+        }
+    }
+    
+    // コントローラー（画面タップ）のイベントリスナー
+    const controller = renderer.xr.getController(0);
+    controller.addEventListener('select', onSelect);
+    scene.add(controller);
+
+
     function onPointerDown(event) {
-        if (currentMode !== 'points') return;
-        if (!hoveredObject) return; 
-        addSelectedPoint(hoveredObject.userData.pos);
+        // AR以外の通常モードでのクリック
+        if (!renderer.xr.isPresenting && currentMode === 'points') {
+            if (!hoveredObject) return; 
+            addSelectedPoint(hoveredObject.userData.pos);
+        }
     }
 
     function updateMouse(event) {
@@ -475,7 +556,7 @@
         const markerMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
         const marker = new THREE.Mesh(markerGeo, markerMat);
         marker.position.copy(pos);
-        scene.add(marker);
+        contentGroup.add(marker); // contentGroupに追加
         pointMarkers.push(marker);
         updatePointCountUI();
         if (selectedPoints.length >= 3) alignCutterToPoints();
@@ -483,7 +564,7 @@
 
     function clearPoints() {
         selectedPoints = [];
-        pointMarkers.forEach(m => scene.remove(m));
+        pointMarkers.forEach(m => contentGroup.remove(m));
         pointMarkers = [];
         updatePointCountUI();
     }
@@ -511,7 +592,6 @@
         cutterGroup.updateMatrixWorld();
     }
 
-    // --- 共通処理 ---
     function updateCutterTransform() {
         if (currentMode !== 'slider') return; 
         const y = parseFloat(document.getElementById('cut-y').value);
@@ -531,8 +611,6 @@
     function performCut(inverse) {
         if (!currentShapeBrush) return;
         const historyGeometry = currentShapeBrush.geometry.clone();
-        
-        // ラベル情報は完全な復元が難しいため、Undo時は再生成する
         historyStack.push({ geo: historyGeometry });
 
         try {
@@ -541,19 +619,16 @@
             invisibleCutterBrush.updateMatrixWorld();
             const resultBrush = evaluator.evaluate(currentShapeBrush, invisibleCutterBrush, SUBTRACTION);
             
-            scene.remove(currentShapeBrush);
+            contentGroup.remove(currentShapeBrush);
             currentShapeBrush = resultBrush;
             updateMaterial();
             currentShapeBrush.castShadow = true;
             currentShapeBrush.receiveShadow = true;
-            scene.add(currentShapeBrush);
+            contentGroup.add(currentShapeBrush);
             invisibleCutterBrush.scale.y = 1;
             clearPoints();
             helperGroup.visible = false;
-            
-            // 切断後はラベルを再生成（頂点が変わるため）
             createLabels(currentShapeBrush.geometry, currentShapeBrush);
-
         } catch (err) {
             console.error("Cut failed:", err);
         }
@@ -563,12 +638,12 @@
     function undo() {
         if (historyStack.length === 0) return;
         const state = historyStack.pop();
-        scene.remove(currentShapeBrush);
+        contentGroup.remove(currentShapeBrush);
         currentShapeBrush = new Brush(state.geo, materialStandard);
         updateMaterial();
         currentShapeBrush.castShadow = true;
         currentShapeBrush.receiveShadow = true;
-        scene.add(currentShapeBrush);
+        contentGroup.add(currentShapeBrush);
         
         if (historyStack.length === 0) { 
              createShape(document.getElementById('shape-select').value);
@@ -588,24 +663,20 @@
         }
     }
 
-    // --- イベントリスナー ---
     document.getElementById('grid-visible-check').addEventListener('change', (e) => {
         gridHelper.visible = e.target.checked;
         axesHelper.visible = e.target.checked;
     });
     
-    // スライダーパネル自体の表示切替
     document.getElementById('slider-visible-check').addEventListener('change', (e) => {
         const wrapper = document.getElementById('slider-controls-wrapper');
         wrapper.style.display = e.target.checked ? 'block' : 'none';
     });
 
-    // 青い切断面の表示切替 (New)
     document.getElementById('plane-visible-check').addEventListener('change', (e) => {
         visualPlane.visible = e.target.checked;
     });
 
-    // ラベルの表示切替 (New)
     document.getElementById('labels-visible-check').addEventListener('change', (e) => {
         if(e.target.checked) {
             createLabels(currentShapeBrush.geometry, currentShapeBrush);
@@ -639,15 +710,49 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
-    function animate() {
-        requestAnimationFrame(animate);
-        controls.update();
-        renderer.render(scene, camera);
-        updateLabels(); // ラベル位置更新
-    }
+    // --- レンダリングループ (AR対応) ---
+    function render(timestamp, frame) {
+        if (renderer.xr.isPresenting) {
+            // ARモード中の処理
+            
+            // ヒットテスト（床の検出）
+            if (frame) {
+                const referenceSpace = renderer.xr.getReferenceSpace();
+                const session = renderer.xr.getSession();
 
-    function updateUI() {
-        document.getElementById('undo-btn').disabled = (historyStack.length === 0);
+                if (hitTestSourceRequested === false) {
+                    session.requestReferenceSpace('viewer').then(function (referenceSpace) {
+                        session.requestHitTestSource({ space: referenceSpace }).then(function (source) {
+                            hitTestSource = source;
+                        });
+                    });
+                    session.addEventListener('end', function () {
+                        hitTestSourceRequested = false;
+                        hitTestSource = null;
+                    });
+                    hitTestSourceRequested = true;
+                }
+
+                if (hitTestSource) {
+                    const hitTestResults = frame.getHitTestResults(hitTestSource);
+                    if (hitTestResults.length > 0) {
+                        const hit = hitTestResults[0];
+                        reticle.visible = true;
+                        reticle.matrix.fromArray(hit.getPose(referenceSpace).transform.matrix);
+                    } else {
+                        reticle.visible = false;
+                    }
+                }
+            }
+            
+        } else {
+            // 通常モード
+            controls.update();
+            reticle.visible = false;
+        }
+        
+        updateLabels();
+        renderer.render(scene, camera);
     }
 
     document.getElementById('shape-select').addEventListener('change', (e) => createShape(e.target.value));
