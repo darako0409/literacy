@@ -3,674 +3,228 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🌻</title>
+    <title>🌻 カレンダー</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
+            background-color: #f8fafc;
         }
+        /* グリッドレイアウト */
         .calendar-grid {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
         }
         .day-cell {
-            min-height: 120px;
-            border: 1px solid #e5e7eb;
-            padding: 8px;
+            min-height: 110px;
+            border: 0.5px solid #f1f5f9;
+            padding: 6px;
             cursor: pointer;
-            transition: background-color 0.2s;
-            position: relative;
+            transition: all 0.2s;
             background-color: white;
-            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .day-cell:hover {
+            background-color: #f1f5f9;
         }
         .day-cell.prev-month, .day-cell.next-month {
-            color: #d1d5db;
-        }
-        .day-cell:not(.prev-month):not(.next-month):hover {
-            background-color: #f9fafb;
-        }
-        .day-number {
-            font-size: 1.5rem;
-            font-weight: 600;
-        }
-        .day-cell.today {
-            border: 2px solid #3b82f6;
-        }
-        .holiday {
-            color: #ef4444;
-        }
-        .saturday {
-            color: #3b82f6;
-        }
-        .event-item {
-            font-size: 0.875rem;
-            color: #4b5563;
-            padding: 2px 4px;
-            border-radius: 4px;
-            margin-top: 4px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .event-item.event {
-            background-color: #e5e7eb;
-        }
-        .todo-item {
-            font-size: 0.875rem;
-            color: #4b5563;
-            background-color: #d1fae5;
-            padding: 2px 4px;
-            border-radius: 4px;
-            margin-top: 4px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .todo-item.completed {
-            text-decoration: line-through;
-            background-color: #f3f4f6;
-            color: #9ca3af;
-        }
-        .incomplete-todo-item {
-            position: relative;
-        }
-        .main-container {
-            max-width: 90%;
-            padding: 1rem;
-        }
-        @media (min-width: 768px) {
-            .main-container {
-                max-width: 7xl;
-                padding: 2rem;
-            }
-        }
-        /* スマホ表示用のスタイル調整 */
-        .mobile-layout .day-cell {
-            min-height: 80px;
-            padding: 4px;
-        }
-        .mobile-layout .day-number {
-            font-size: 1rem;
-        }
-        .mobile-layout .event-item {
-            font-size: 0.75rem;
-        }
-        .mobile-layout .text-2xl {
-            font-size: 1.25rem;
-        }
-        .mobile-layout .text-3xl {
-            font-size: 1.5rem;
-        }
-    </style>
-</head>
-<body class="bg-gray-100 p-4 sm:p-8">
-    <div class="flex justify-center mb-4 space-x-4">
-        <button id="mobileViewBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-full transition-colors">スマホ表示</button>
-        <button id="pcViewBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-full transition-colors">PC表示</button>
-    </div>
-    <div id="appContainer" class="main-container mx-auto bg-white rounded-xl shadow-lg p-6 mb-8">
-        <div class="flex items-center justify-between mb-6">
-            <h1 class="text-3xl font-bold text-gray-800">🌻</h1>
-            <div class="flex space-x-2">
-                <button id="prevMonthBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-600 font-bold py-2 px-4 rounded-full transition-colors">&lt;</button>
-                <span id="currentMonthYear" class="text-2xl font-semibold text-gray-700 self-center"></span>
-                <button id="nextMonthBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-600 font-bold py-2 px-4 rounded-full transition-colors">&gt;</button>
-            </div>
-        </div>
-
-        <div class="calendar-container rounded-lg overflow-hidden border border-gray-200">
-            <div class="calendar-header calendar-grid text-center font-semibold bg-gray-200 text-gray-700 py-2">
-                <div class="saturday">日</div>
-                <div>月</div>
-                <div>火</div>
-                <div>水</div>
-                <div>木</div>
-                <div>金</div>
-                <div class="holiday">土</div>
-            </div>
-            <div id="calendar" class="calendar-grid">
-                <!-- カレンダーの日付がここに生成されます -->
-            </div>
-        </div>
-    </div>
-    
-    <!-- 目標と課題点 -->
-    <div class="main-container mx-auto bg-white rounded-xl shadow-lg p-6 mb-8">
-        <div class="flex justify-between items-center mb-4">
-            <h2 class="text-2xl font-bold">目標</h2>
-            <button id="editGoalBtn" class="bg-blue-500 hover:bg-blue-600 text-white py-1 px-4 rounded-full transition-colors">編集</button>
-        </div>
-        <div id="goalDisplay" class="p-4 rounded-lg bg-gray-50 whitespace-pre-wrap min-h-[10rem] text-gray-800"></div>
-
-        <div class="flex justify-between items-center mt-6 mb-4">
-            <h2 class="text-2xl font-bold">課題点</h2>
-            <button id="editIssueBtn" class="bg-blue-500 hover:bg-blue-600 text-white py-1 px-4 rounded-full transition-colors">編集</button>
-        </div>
-        <div id="issueDisplay" class="p-4 rounded-lg bg-gray-50 whitespace-pre-wrap min-h-[10rem] text-gray-800"></div>
-    </div>
-
-    <!-- 未完了TODOリスト -->
-    <div class="main-container mx-auto bg-white rounded-xl shadow-lg p-6 mb-8">
-        <h2 class="text-2xl font-bold mb-4">未完了のやることリスト</h2>
-        <div id="incompleteTodos" class="space-y-4">
-            <!-- 未完了のTODOリストがここに生成されます -->
-        </div>
-    </div>
-
-    <!-- 完了済TODOリスト -->
-    <div class="main-container mx-auto bg-white rounded-xl shadow-lg p-6 mb-8">
-        <h2 class="text-2xl font-bold mb-4">完了済みのやることリスト</h2>
-        <div id="completedTodos" class="space-y-4">
-            <!-- 完了済みのTODOリストがここに生成されます -->
-        </div>
-    </div>
-
-    <!-- カレンダー用モーダルウィンドウ -->
-    <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-lg p-6 w-full max-w-xl">
-            <div class="flex justify-between items-center mb-4">
-                <h2 id="modalDate" class="text-2xl font-bold"></h2>
-                <button id="closeModalBtn" class="text-gray-500 hover:text-gray-700 text-2xl font-bold">&times;</button>
-            </div>
-            
-            <h3 class="text-lg font-semibold mb-2">予定</h3>
-            <div class="flex items-center mb-4">
-                <textarea id="eventInput" class="flex-1 h-24 p-2 border rounded resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="予定を入力..."></textarea>
-                <div class="ml-2 flex flex-col items-center">
-                    <label for="eventColor" class="text-sm font-semibold text-gray-700">色</label>
-                    <input type="color" id="eventColor" class="w-10 h-10 p-1 border rounded-md cursor-pointer">
-                </div>
-            </div>
-
-            <h3 class="text-lg font-semibold mb-2">やることリスト</h3>
-            <div id="todoList" class="space-y-2">
-                <!-- TODOリストの項目がここに生成されます -->
-            </div>
-            <div class="flex mt-4 space-x-2">
-                <input type="text" id="newTodoInput" class="flex-1 p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="新しいやること...">
-                <button id="addTodoBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition-colors">追加</button>
-            </div>
-            <div class="flex justify-end mt-4">
-                <button id="saveBtn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition-colors">保存</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 目標・課題点用モーダルウィンドウ -->
-    <div id="notesModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-lg p-6 w-full max-w-xl">
-            <div class="flex justify-between items-center mb-4">
-                <h2 id="notesModalTitle" class="text-2xl font-bold"></h2>
-                <button id="closeNotesModalBtn" class="text-gray-500 hover:text-gray-700 text-2xl font-bold">&times;</button>
-            </div>
-            <textarea id="notesInput" class="w-full h-48 p-2 mb-4 border rounded resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-            <div class="flex justify-end mt-4 space-x-2">
-                <button id="cancelNotesBtn" class="bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-2 px-4 rounded transition-colors">キャンセル</button>
-                <button id="saveNotesBtn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition-colors">保存</button>
-            </div>
-        </div>
-    </div>
-    
-    <div id="statusMessage" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-sm py-2 px-4 rounded-full shadow-lg transition-opacity duration-300 opacity-0"></div>
-
-    <div class="main-container mx-auto bg-white rounded-xl shadow-lg p-6 mt-8">
-        <h2 class="text-xl font-semibold text-gray-600 mb-2">ログイン中のユーザーID:</h2>
-        <span id="userIdDisplay" class="font-mono bg-gray-200 text-gray-800 p-2 rounded-md block break-words"></span>
-    </div>
-
-    <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, setDoc, onSnapshot, collection, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-    import { firebaseConfig } from "./config.js";
-        
-        let app = null;
-        let db = null;
-        let auth = null;
-        
-        if (firebaseConfig.projectId) {
-            try {
-                app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-            } catch (e) {
-                console.error("Firebase initialization failed:", e);
-            }
-        } else {
-            console.error("Firebase config is not available. Please add your config.");
-        }
-
-        const showStatusMessage = (message) => {
-            const statusEl = document.getElementById('statusMessage');
-            if (!statusEl) return;
-            statusEl.textContent = message;
-            statusEl.classList.remove('opacity-0');
-            statusEl.classList.add('opacity-100');
-            setTimeout(() => {
-                statusEl.classList.remove('opacity-100');
-                statusEl.classList.add('opacity-0');
-            }, 3000);
-        };
-
-        let currentUserId = null;
-        let eventData = {};
-        let generalNotesData = {};
-        let currentEditingField = null;
-        const currentYearMonth = () => `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
-
-        const userIdDisplayEl = document.getElementById('userIdDisplay');
-        const goalDisplayEl = document.getElementById('goalDisplay');
-        const issueDisplayEl = document.getElementById('issueDisplay');
-        const editGoalBtn = document.getElementById('editGoalBtn');
-        const editIssueBtn = document.getElementById('editIssueBtn');
-        const notesModalEl = document.getElementById('notesModal');
-        const notesModalTitleEl = document.getElementById('notesModalTitle');
-        const notesInputEl = document.getElementById('notesInput');
-        const closeNotesModalBtn = document.getElementById('closeNotesModalBtn');
-        const saveNotesBtn = document.getElementById('saveNotesBtn');
-        const cancelNotesBtn = document.getElementById('cancelNotesBtn');
-        const eventColorInput = document.getElementById('eventColor');
-        const completedTodosEl = document.getElementById('completedTodos');
-        const appContainerEl = document.getElementById('appContainer');
-        const mobileViewBtn = document.getElementById('mobileViewBtn');
-        const pcViewBtn = document.getElementById('pcViewBtn');
-
-        const authAndInit = async () => {
-            if (!auth || !db) {
-                showStatusMessage('ローカルモードで実行中。データは保存されません。');
-                renderCalendar(currentYear, currentMonth);
-                renderIncompleteTodos();
-                renderCompletedTodos();
-                return;
-            }
-            try {
-                await signInAnonymously(auth);
-                currentUserId = auth.currentUser.uid;
-                userIdDisplayEl.textContent = currentUserId;
-                showStatusMessage(`ログインしました。データロード中です...`);
-                initFirestoreListeners();
-            } catch (error) {
-                console.error("Firebase Authentication Error:", error);
-                showStatusMessage('ログインに失敗しました。');
-            }
-        };
-
-        const initFirestoreListeners = () => {
-            if (!currentUserId || !db) return;
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
-            const sharedCalendarCollectionPath = `/artifacts/${appId}/public/data/calendar_events`;
-            const sharedCalendarCollectionRef = collection(db, sharedCalendarCollectionPath);
-            onSnapshot(sharedCalendarCollectionRef, (snapshot) => {
-                const newEventData = {};
-                snapshot.forEach((doc) => {
-                    newEventData[doc.id] = doc.data();
-                });
-                eventData = newEventData;
-                renderCalendar(currentYear, currentMonth);
-                renderIncompleteTodos();
-                renderCompletedTodos();
-                showStatusMessage('カレンダーデータが更新されました');
-            }, (error) => {
-                console.error("Firestore Error:", error);
-                showStatusMessage('データのロード中にエラーが発生しました。');
-            });
-
-            const sharedNotesDocPath = `/artifacts/${appId}/public/data/monthly_notes`;
-            const sharedNotesDocRef = doc(db, sharedNotesDocPath, currentYearMonth());
-            onSnapshot(sharedNotesDocRef, (doc) => {
-                if (doc.exists()) {
-                    generalNotesData = doc.data();
-                    goalDisplayEl.textContent = generalNotesData.goal || '目標を入力してください...';
-                    issueDisplayEl.textContent = generalNotesData.issue || '課題点を入力してください...';
-                } else {
-                    generalNotesData = {};
-                    goalDisplayEl.textContent = '目標を入力してください...';
-                    issueDisplayEl.textContent = '課題点を入力してください...';
-                }
-                showStatusMessage('目標と課題点が更新されました');
-            }, (error) => {
-                console.error("Firestore Error:", error);
-                showStatusMessage('データのロード中にエラーが発生しました。');
-            });
-        };
-
-        const calendarEl = document.getElementById('calendar');
-        const currentMonthYearEl = document.getElementById('currentMonthYear');
-        const prevMonthBtn = document.getElementById('prevMonthBtn');
-        const nextMonthBtn = document.getElementById('nextMonthBtn');
-        const modalEl = document.getElementById('modal');
-        const closeModalBtn = document.getElementById('closeModalBtn');
-        const modalDateEl = document.getElementById('modalDate');
-        const eventInput = document.getElementById('eventInput');
-        const todoListEl = document.getElementById('todoList');
-        const newTodoInput = document.getElementById('newTodoInput');
-        const addTodoBtn = document.getElementById('addTodoBtn');
-        const saveBtn = document.getElementById('saveBtn');
-        const incompleteTodosEl = document.getElementById('incompleteTodos');
-
-        let currentMonth = new Date().getMonth();
-        let currentYear = new Date().getFullYear();
-        let selectedDate = null;
-        
-        let holidays = {};
-        holidays['2025-01-01'] = '元日';
-        holidays['2025-01-13'] = '成人の日';
-        holidays['2025-02-11'] = '建国記念の日';
-        holidays['2025-03-20'] = '春分の日';
-        holidays['2025-04-29'] = '昭和の日';
-        holidays['2025-05-03'] = '憲法記念日';
-        holidays['2025-05-04'] = 'みどりの日';
-        holidays['2025-05-05'] = 'こどもの日';
-        holidays['2025-05-06'] = '振替休日';
-        holidays['2025-07-21'] = '海の日';
-        holidays['2025-08-11'] = '山の日';
-        holidays['2025-08-15'] = '振替休日';
-        holidays['2025-09-22'] = '敬老の日';
-        holidays['2025-09-23'] = '秋分の日';
-        holidays['2025-10-13'] = 'スポーツの日';
-        holidays['2025-11-03'] = '文化の日';
-        holidays['2025-11-23'] = '勤労感謝の日';
-        holidays['2025-11-29'] = '振替休日';
-
-        const generateDateKey = (year, month, day) => `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-
-        const renderCalendar = (year, month) => {
-            calendarEl.innerHTML = '';
-            const firstDay = new Date(year, month, 1);
-            const lastDay = new Date(year, month + 1, 0);
-            const prevLastDay = new Date(year, month, 0);
-
-            currentMonthYearEl.textContent = `${year}年 ${month + 1}月`;
-
-            const startDayIndex = firstDay.getDay();
-
-            for (let i = startDayIndex; i > 0; i--) {
-                const day = prevLastDay.getDate() - i + 1;
-                const cell = document.createElement('div');
-                cell.classList.add('day-cell', 'prev-month', 'p-2');
-                cell.innerHTML = `<span class="day-number">${day}</span>`;
-                calendarEl.appendChild(cell);
-            }
-
-            for (let i = 1; i <= lastDay.getDate(); i++) {
-                const date = new Date(year, month, i);
-                const dateKey = generateDateKey(year, month, i);
-                const storedData = eventData[dateKey] || { event: '', todos: [] };
-
-                const cell = document.createElement('div');
-                cell.classList.add('day-cell', 'p-2', 'relative');
-                cell.dataset.date = dateKey;
-
-                if (date.getDay() === 0 || holidays[dateKey]) {
-                    cell.classList.add('holiday');
-                }
-                if (date.getDay() === 6) {
-                    cell.classList.add('saturday');
-                }
-                if (date.toDateString() === new Date().toDateString()) {
-                    cell.classList.add('today');
-                }
-
-                const daySpan = document.createElement('span');
-                daySpan.classList.add('day-number');
-                daySpan.textContent = i;
-                cell.appendChild(daySpan);
-
-                if (holidays[dateKey]) {
-                    const holidayLabel = document.createElement('div');
-                    holidayLabel.classList.add('event-item', 'bg-red-200', 'text-red-800');
-                    holidayLabel.textContent = holidays[dateKey];
-                    cell.appendChild(holidayLabel);
-                }
-
-                if (storedData.event) {<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🌻</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
-        }
-        .calendar-grid {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-        }
-        .day-cell {
-            min-height: 120px;
-            border: 1px solid #f3f4f6;
-            padding: 4px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-            position: relative;
-            background-color: white;
-            overflow: hidden;
-        }
-        .day-cell.prev-month, .day-cell.next-month {
-            color: #d1d5db;
-            background-color: #f9fafb;
-        }
-        .day-cell:not(.prev-month):not(.next-month):hover {
-            background-color: #f0f9ff;
-        }
-        .day-number {
-            font-size: 1.1rem;
-            font-weight: 700;
-            margin-bottom: 2px;
+            background-color: #f8fafc;
+            color: #cbd5e1;
         }
         .day-cell.today {
             background-color: #eff6ff;
             border: 2px solid #3b82f6;
+            z-index: 10;
+        }
+        .day-number {
+            font-size: 0.9rem;
+            font-weight: 700;
+            margin-bottom: 4px;
         }
         .holiday { color: #ef4444; }
         .saturday { color: #3b82f6; }
-        
-        .event-item {
-            font-size: 0.75rem;
+
+        /* 予定・TODOアイテム */
+        .item-badge {
+            font-size: 0.7rem;
+            padding: 1px 4px;
+            border-radius: 4px;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
             line-height: 1.2;
-            padding: 2px 4px;
-            border-radius: 3px;
-            margin-bottom: 2px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
         }
-        .event-item.event {
-            background-color: #e5e7eb;
-            font-weight: 500;
+        .item-badge.event {
+            background-color: #e2e8f0;
+            color: #475569;
+            font-weight: 600;
         }
-        .todo-item {
-            font-size: 0.75rem;
-            color: #065f46;
-            background-color: #d1fae5;
-            border-radius: 3px;
-            margin-bottom: 2px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+        .item-badge.todo {
+            background-color: #dcfce7;
+            color: #166534;
         }
-        
-        /* スクロール設定 */
-        .calendar-scroll-wrapper {
+        .item-badge.completed {
+            text-decoration: line-through;
+            opacity: 0.5;
+            background-color: #f1f5f9;
+            color: #94a3b8;
+        }
+
+        /* 横スクロール対応（スマホ表示時） */
+        .calendar-wrapper {
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
         }
-
-        .main-container {
-            width: 100%;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        /* スマホ表示用のスタイル調整 */
         .mobile-layout .calendar-grid {
-            min-width: 700px; /* 横幅を確保してスクロールさせる */
+            min-width: 600px;
         }
         .mobile-layout .day-cell {
-            min-height: 90px;
-        }
-        .mobile-layout .main-container {
-            max-width: 100%;
-            padding: 0.5rem;
-        }
-        
-        /* PC表示用のスタイル */
-        .pc-layout .main-container {
-            max-width: 1200px;
-            padding: 2rem;
+            min-height: 80px;
         }
 
-        /* スクロールバーのカスタマイズ */
-        .calendar-scroll-wrapper::-webkit-scrollbar {
-            height: 6px;
+        /* レイアウト幅 */
+        .pc-layout .main-content {
+            max-width: 1000px;
         }
-        .calendar-scroll-wrapper::-webkit-scrollbar-thumb {
+        .mobile-layout .main-content {
+            max-width: 100%;
+        }
+        
+        /* スクロールバー非表示（任意） */
+        .calendar-wrapper::-webkit-scrollbar {
+            height: 4px;
+        }
+        .calendar-wrapper::-webkit-scrollbar-thumb {
             background: #cbd5e1;
             border-radius: 10px;
         }
     </style>
 </head>
-<body class="bg-gray-100 p-2 sm:p-4 pc-layout">
-    <!-- 表示切り替えボタン -->
-    <div class="flex justify-center mb-4 space-x-2">
-        <button id="mobileViewBtn" class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 active:bg-blue-100 transition-colors">スマホ表示</button>
-        <button id="pcViewBtn" class="bg-white border border-blue-500 text-blue-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-50 transition-colors">PC表示</button>
+<body class="p-2 sm:p-4 pc-layout">
+
+    <!-- 表示モード切り替え -->
+    <div class="flex justify-center mb-6 space-x-2">
+        <button id="mobileViewBtn" class="px-4 py-2 text-sm font-bold rounded-full border transition-all bg-white text-gray-600 border-gray-200">スマホ表示</button>
+        <button id="pcViewBtn" class="px-4 py-2 text-sm font-bold rounded-full border transition-all bg-blue-600 text-white border-blue-600 shadow-sm">PC表示</button>
     </div>
 
-    <!-- メインコンテンツ -->
-    <div id="appContainer" class="main-container space-y-6">
+    <div class="main-content mx-auto space-y-6">
         
-        <!-- カレンダーセクション -->
-        <div class="bg-white rounded-2xl shadow-sm p-4 sm:p-6">
-            <div class="flex items-center justify-between mb-4">
-                <h1 id="monthTitle" class="text-2xl font-bold text-gray-800">🌻</h1>
-                <div class="flex items-center space-x-3">
-                    <button id="prevMonthBtn" class="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600 font-bold">&lt;</button>
-                    <span id="currentMonthYear" class="text-xl font-bold text-gray-700"></span>
-                    <button id="nextMonthBtn" class="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600 font-bold">&gt;</button>
+        <!-- カレンダーカード -->
+        <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="p-4 sm:p-6 flex items-center justify-between border-b border-gray-50">
+                <h1 class="text-2xl font-black text-gray-800">🌻</h1>
+                <div class="flex items-center space-x-4">
+                    <button id="prevMonthBtn" class="w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full font-bold text-gray-500">&lt;</button>
+                    <span id="currentMonthYear" class="text-lg font-bold text-gray-700 min-w-[100px] text-center"></span>
+                    <button id="nextMonthBtn" class="w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full font-bold text-gray-500">&gt;</button>
                 </div>
             </div>
 
-            <div class="calendar-scroll-wrapper rounded-xl border border-gray-100">
-                <div class="calendar-grid text-center font-bold bg-gray-50 text-gray-500 py-3 text-xs uppercase tracking-wider border-b border-gray-100">
-                    <div class="holiday">日</div>
-                    <div>月</div>
-                    <div>火</div>
-                    <div>水</div>
-                    <div>木</div>
-                    <div>金</div>
-                    <div class="saturday">土</div>
+            <div class="calendar-wrapper">
+                <!-- 曜日ヘッダー -->
+                <div class="calendar-grid bg-gray-50 text-center py-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100">
+                    <div class="holiday">SUN</div>
+                    <div>MON</div>
+                    <div>TUE</div>
+                    <div>WED</div>
+                    <div>THU</div>
+                    <div>FRI</div>
+                    <div class="saturday">SAT</div>
                 </div>
-                <div id="calendar" class="calendar-grid">
-                    <!-- JSで生成 -->
-                </div>
+                <!-- 日付グリッド -->
+                <div id="calendar" class="calendar-grid"></div>
             </div>
         </div>
-        
-        <!-- 目標・課題点セクション -->
+
+        <!-- 目標・課題点 -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="bg-white rounded-2xl shadow-sm p-5">
+            <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
                 <div class="flex justify-between items-center mb-3">
-                    <h2 class="text-lg font-bold text-gray-800 flex items-center">
-                        <span class="mr-2">🎯</span>目標
-                    </h2>
-                    <button id="editGoalBtn" class="text-blue-500 text-sm font-bold hover:underline">編集</button>
+                    <h2 class="font-bold text-gray-800 flex items-center"><span class="mr-2 text-blue-500">●</span>今月の目標</h2>
+                    <button id="editGoalBtn" class="text-xs font-bold text-blue-500 hover:bg-blue-50 px-3 py-1 rounded-full">編集</button>
                 </div>
-                <div id="goalDisplay" class="text-gray-600 text-sm whitespace-pre-wrap min-h-[80px] bg-gray-50 p-3 rounded-xl border border-dashed border-gray-200"></div>
+                <div id="goalDisplay" class="text-sm text-gray-600 bg-gray-50 p-4 rounded-2xl min-h-[100px] whitespace-pre-wrap"></div>
             </div>
-
-            <div class="bg-white rounded-2xl shadow-sm p-5">
+            <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
                 <div class="flex justify-between items-center mb-3">
-                    <h2 class="text-lg font-bold text-gray-800 flex items-center">
-                        <span class="mr-2">💡</span>課題点
-                    </h2>
-                    <button id="editIssueBtn" class="text-blue-500 text-sm font-bold hover:underline">編集</button>
+                    <h2 class="font-bold text-gray-800 flex items-center"><span class="mr-2 text-orange-500">●</span>課題・改善点</h2>
+                    <button id="editIssueBtn" class="text-xs font-bold text-blue-500 hover:bg-blue-50 px-3 py-1 rounded-full">編集</button>
                 </div>
-                <div id="issueDisplay" class="text-gray-600 text-sm whitespace-pre-wrap min-h-[80px] bg-gray-50 p-3 rounded-xl border border-dashed border-gray-200"></div>
+                <div id="issueDisplay" class="text-sm text-gray-600 bg-gray-50 p-4 rounded-2xl min-h-[100px] whitespace-pre-wrap"></div>
             </div>
         </div>
 
-        <!-- TODOセクション -->
-        <div class="bg-white rounded-2xl shadow-sm p-5">
-            <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
-                <span class="mr-2">📝</span>未完了のやること
-            </h2>
-            <div id="incompleteTodos" class="space-y-2"></div>
-        </div>
-
-        <div class="bg-white rounded-2xl shadow-sm p-5">
-            <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
-                <span class="mr-2">✅</span>完了済みのやること
-            </h2>
-            <div id="completedTodos" class="space-y-2"></div>
+        <!-- TODOリスト -->
+        <div class="space-y-4">
+            <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
+                <h2 class="font-bold text-gray-800 mb-4 flex items-center"><span class="mr-2 text-green-500">●</span>未完了のやること</h2>
+                <div id="incompleteTodos" class="space-y-2"></div>
+            </div>
+            <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
+                <h2 class="font-bold text-gray-400 mb-4 flex items-center"><span class="mr-2 text-gray-300">●</span>完了済みのやること</h2>
+                <div id="completedTodos" class="space-y-2 opacity-60"></div>
+            </div>
         </div>
 
         <!-- ユーザー情報 -->
-        <div class="bg-gray-800 rounded-2xl p-4 text-white text-center">
-            <p class="text-xs text-gray-400 mb-1">ログイン中のユーザーID</p>
-            <p id="userIdDisplay" class="font-mono text-xs break-all opacity-80"></p>
+        <div class="text-center py-8">
+            <p class="text-[10px] font-bold text-gray-400 uppercase mb-2">Login User ID</p>
+            <p id="userIdDisplay" class="font-mono text-[10px] text-gray-400 break-all px-4"></p>
         </div>
     </div>
 
     <!-- 予定入力モーダル -->
-    <div id="modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50 backdrop-blur-sm">
-        <div class="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl">
-            <div class="flex justify-between items-center mb-4">
-                <h2 id="modalDate" class="text-xl font-bold text-gray-800"></h2>
-                <button id="closeModalBtn" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+    <div id="modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-[40px] p-8 w-full max-w-md shadow-2xl">
+            <div class="flex justify-between items-center mb-6">
+                <h2 id="modalDate" class="text-xl font-black text-gray-800"></h2>
+                <button id="closeModalBtn" class="text-gray-400 hover:text-gray-600 text-3xl">&times;</button>
             </div>
-            
-            <div class="space-y-4">
+            <div class="space-y-6">
                 <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-1">予定</label>
-                    <div class="flex space-x-2">
-                        <textarea id="eventInput" class="flex-1 h-20 p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="何をする？"></textarea>
-                        <input type="color" id="eventColor" class="w-12 h-12 rounded-xl border-0 p-1 cursor-pointer" value="#3b82f6">
+                    <label class="block text-xs font-bold text-gray-400 uppercase mb-2">予定内容</label>
+                    <div class="flex gap-2">
+                        <input id="eventInput" class="flex-1 bg-gray-50 border-none rounded-2xl p-4 focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="例：会議、旅行など">
+                        <input type="color" id="eventColor" class="w-12 h-12 rounded-2xl border-none p-1 bg-gray-50 cursor-pointer">
                     </div>
                 </div>
-
                 <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-1">TODOを追加</label>
-                    <div class="flex space-x-2">
-                        <input type="text" id="newTodoInput" class="flex-1 p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="やること...">
-                        <button id="addTodoBtn" class="bg-blue-600 text-white px-4 rounded-xl font-bold hover:bg-blue-700 transition-colors">追加</button>
+                    <label class="block text-xs font-bold text-gray-400 uppercase mb-2">TODOを追加</label>
+                    <div class="flex gap-2">
+                        <input id="newTodoInput" class="flex-1 bg-gray-50 border-none rounded-2xl p-4 focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="やることを入力...">
+                        <button id="addTodoBtn" class="bg-blue-600 text-white px-6 rounded-2xl font-bold hover:bg-blue-700 transition-all">追加</button>
                     </div>
                 </div>
-
-                <div id="todoList" class="space-y-2 max-h-40 overflow-y-auto"></div>
-
-                <div class="flex space-x-2 pt-2">
-                    <button id="saveBtn" class="flex-1 bg-green-600 text-white py-3 rounded-2xl font-bold hover:bg-green-700 transition-shadow">保存して閉じる</button>
-                </div>
+                <div id="modalTodoList" class="space-y-2 max-h-40 overflow-y-auto pr-2"></div>
+                <button id="saveBtn" class="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold hover:bg-black transition-all">保存して閉じる</button>
             </div>
         </div>
     </div>
 
-    <!-- 目標・課題編集モーダル -->
-    <div id="notesModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50 backdrop-blur-sm">
-        <div class="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl">
-            <h2 id="notesModalTitle" class="text-xl font-bold text-gray-800 mb-4"></h2>
-            <textarea id="notesInput" class="w-full h-40 p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm mb-4"></textarea>
-            <div class="flex space-x-2">
-                <button id="cancelNotesBtn" class="flex-1 bg-gray-100 text-gray-600 py-3 rounded-2xl font-bold">キャンセル</button>
-                <button id="saveNotesBtn" class="flex-1 bg-blue-600 text-white py-3 rounded-2xl font-bold">保存</button>
+    <!-- 目標編集モーダル -->
+    <div id="notesModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-[40px] p-8 w-full max-w-md shadow-2xl">
+            <h2 id="notesModalTitle" class="text-xl font-black text-gray-800 mb-6"></h2>
+            <textarea id="notesInput" class="w-full h-48 bg-gray-50 border-none rounded-2xl p-4 focus:ring-2 focus:ring-blue-500 outline-none text-sm mb-6" placeholder="内容を入力してください..."></textarea>
+            <div class="flex gap-3">
+                <button id="cancelNotesBtn" class="flex-1 bg-gray-100 text-gray-500 py-4 rounded-2xl font-bold">キャンセル</button>
+                <button id="saveNotesBtn" class="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-blue-200">保存する</button>
             </div>
         </div>
     </div>
-    
-    <div id="statusMessage" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs py-2 px-4 rounded-full shadow-xl transition-all duration-300 opacity-0 z-[100]"></div>
+
+    <!-- 通知メッセージ -->
+    <div id="statusMessage" class="fixed bottom-10 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] font-bold py-2 px-6 rounded-full shadow-xl transition-all duration-300 opacity-0 pointer-events-none z-[100]"></div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // 環境設定
+        // --- Firebase 設定 ---
         const firebaseConfig = {
             apiKey: "AIzaSyD1as9zQr8P6k8Up9Y4FnO3DYroyvgMnAM",
             authDomain: "karennda-e8465.firebaseapp.com",
@@ -680,84 +234,76 @@
             appId: "1:1023443880200:web:ee995edd613fbc626544bd",
             measurementId: "G-E9Y0L9P95V"
         };
-        
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'karennda-app';
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
+        const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'default-calendar';
 
-        // 状態管理
-        let currentUserId = null;
-        let eventData = {};
-        let monthlyNotes = {};
+        // --- アプリ状態 ---
+        let user = null;
+        let eventData = {}; // 全ての日程データ
+        let monthlyNotes = { goal: "", issue: "" };
         let currentYear = new Date().getFullYear();
         let currentMonth = new Date().getMonth();
-        let selectedDate = null;
-        let currentEditingField = null;
+        let selectedDateKey = null;
+        let editingField = null;
+        let noteUnsubscribe = null;
 
-        // DOM要素
-        const elements = {
-            calendar: document.getElementById('calendar'),
-            monthYear: document.getElementById('currentMonthYear'),
-            userId: document.getElementById('userIdDisplay'),
-            goal: document.getElementById('goalDisplay'),
-            issue: document.getElementById('issueDisplay'),
-            incomplete: document.getElementById('incompleteTodos'),
-            completed: document.getElementById('completedTodos'),
-            status: document.getElementById('statusMessage'),
-            modal: document.getElementById('modal'),
-            notesModal: document.getElementById('notesModal')
+        const getMonthKey = () => `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+
+        // --- DOM ユーティリティ ---
+        const $ = (id) => document.getElementById(id);
+        const showToast = (msg) => {
+            const el = $('statusMessage');
+            el.textContent = msg;
+            el.style.opacity = '1';
+            setTimeout(() => el.style.opacity = '0', 2500);
         };
 
-        const currentYearMonth = () => `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
-
-        const showStatus = (msg) => {
-            elements.status.textContent = msg;
-            elements.status.style.opacity = '1';
-            setTimeout(() => elements.status.style.opacity = '0', 3000);
-        };
-
-        // Firebase同期
-        const initSync = async () => {
+        // --- 初期化 & 認証 ---
+        const init = async () => {
             try {
                 const cred = await signInAnonymously(auth);
-                currentUserId = cred.user.uid;
-                elements.userId.textContent = currentUserId;
-                
-                // カレンダーイベントのリアルタイム同期
-                onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'calendar_events'), (snap) => {
+                user = cred.user;
+                $('userIdDisplay').textContent = user.uid;
+
+                // イベント一括購読 (全データ取得してメモリ内でフィルタ)
+                onSnapshot(collection(db, 'artifacts', APP_ID, 'public', 'data', 'calendar_events'), (snap) => {
                     eventData = {};
                     snap.forEach(doc => eventData[doc.id] = doc.data());
-                    renderAll();
-                }, (err) => console.error("Sync Error:", err));
+                    renderCalendar();
+                    renderFooterTodoLists();
+                });
 
-                // 月間メモの同期
-                syncMonthlyNotes();
-            } catch (err) {
-                showStatus("ログイン失敗");
-                console.error(err);
+                syncNotes(); // 月間メモの購読
+            } catch (e) {
+                console.error(e);
+                showToast("認証エラーが発生しました");
             }
         };
 
-        const syncMonthlyNotes = () => {
-            const path = `/artifacts/${appId}/public/data/monthly_notes/${currentYearMonth()}`;
-            onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'monthly_notes', currentYearMonth()), (d) => {
-                if (d.exists()) {
-                    monthlyNotes = d.data();
-                    elements.goal.textContent = monthlyNotes.goal || "目標を設定しましょう";
-                    elements.issue.textContent = monthlyNotes.issue || "課題を整理しましょう";
+        // 月間メモの購読管理 (切り替え時に古いリスナーを解除)
+        const syncNotes = () => {
+            if (noteUnsubscribe) noteUnsubscribe();
+            const monthKey = getMonthKey();
+            noteUnsubscribe = onSnapshot(doc(db, 'artifacts', APP_ID, 'public', 'data', 'monthly_notes', monthKey), (snap) => {
+                if (snap.exists()) {
+                    monthlyNotes = snap.data();
+                    $('goalDisplay').textContent = monthlyNotes.goal || "目標を設定しましょう";
+                    $('issueDisplay').textContent = monthlyNotes.issue || "課題を整理しましょう";
                 } else {
                     monthlyNotes = { goal: "", issue: "" };
-                    elements.goal.textContent = "目標を設定しましょう";
-                    elements.issue.textContent = "課題を整理しましょう";
+                    $('goalDisplay').textContent = "目標を設定しましょう";
+                    $('issueDisplay').textContent = "課題を整理しましょう";
                 }
             });
         };
 
-        // カレンダー描画
-        const renderAll = () => {
-            elements.calendar.innerHTML = '';
-            elements.monthYear.textContent = `${currentYear}年 ${currentMonth + 1}月`;
+        // --- 描画ロジック ---
+        const renderCalendar = () => {
+            const calendar = $('calendar');
+            calendar.innerHTML = '';
+            $('currentMonthYear').textContent = `${currentYear}年 ${currentMonth + 1}月`;
 
             const firstDay = new Date(currentYear, currentMonth, 1).getDay();
             const lastDate = new Date(currentYear, currentMonth + 1, 0).getDate();
@@ -765,209 +311,199 @@
 
             // 前月分
             for (let i = firstDay; i > 0; i--) {
-                createCell(prevLastDate - i + 1, true);
+                calendar.appendChild(createCell(prevLastDate - i + 1, true));
             }
             // 当月分
             for (let i = 1; i <= lastDate; i++) {
-                createCell(i, false);
+                calendar.appendChild(createCell(i, false));
             }
-            // 翌月分
-            const remaining = 42 - (firstDay + lastDate);
+            // 翌月分 (6行固定)
+            const totalCells = firstDay + lastDate;
+            const remaining = 42 - totalCells;
             for (let i = 1; i <= remaining; i++) {
-                createCell(i, true);
+                calendar.appendChild(createCell(i, true));
             }
-
-            renderTodoLists();
         };
 
-        const createCell = (day, isOtherMonth) => {
+        const createCell = (day, isOther) => {
             const cell = document.createElement('div');
-            cell.className = `day-cell ${isOtherMonth ? 'prev-month' : ''}`;
+            cell.className = `day-cell ${isOther ? 'other-month text-slate-300 bg-slate-50/50' : ''}`;
             
-            if (!isOtherMonth) {
+            if (!isOther) {
                 const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                 const data = eventData[dateKey] || {};
-                const dateObj = new Date(currentYear, currentMonth, day);
-                
-                if (dateObj.toDateString() === new Date().toDateString()) cell.classList.add('today');
-                if (dateObj.getDay() === 0) cell.classList.add('holiday');
-                if (dateObj.getDay() === 6) cell.classList.add('saturday');
+                const d = new Date(currentYear, currentMonth, day);
 
-                let html = `<div class="day-number">${day}</div>`;
+                if (d.toDateString() === new Date().toDateString()) cell.classList.add('today');
+                if (d.getDay() === 0) cell.classList.add('holiday');
+                if (d.getDay() === 6) cell.classList.add('saturday');
+
+                let html = `<div class="day-number">${day}</div><div class="flex-1 space-y-0.5 overflow-hidden">`;
                 if (data.event) {
-                    const bgColor = data.color ? data.color + '22' : '#e5e7eb';
-                    const borderColor = data.color || '#94a3b8';
-                    html += `<div class="event-item event" style="background-color:${bgColor}; border-left: 3px solid ${borderColor}">${data.event}</div>`;
+                    const style = data.color ? `style="border-left: 3px solid ${data.color}; background-color: ${data.color}15"` : '';
+                    html += `<div class="item-badge event" ${style}>${data.event}</div>`;
                 }
                 if (data.todos) {
-                    data.todos.filter(t => !t.completed).forEach(t => {
-                        html += `<div class="event-item todo-item">・ ${t.text}</div>`;
+                    data.todos.forEach(t => {
+                        html += `<div class="item-badge todo ${t.completed ? 'completed' : ''}">・${t.text}</div>`;
                     });
                 }
+                html += `</div>`;
                 cell.innerHTML = html;
-                cell.onclick = () => openModal(dateKey);
+                cell.onclick = () => openEditModal(dateKey);
             } else {
-                cell.innerHTML = `<div class="day-number opacity-20">${day}</div>`;
+                cell.innerHTML = `<div class="day-number opacity-30">${day}</div>`;
             }
-            elements.calendar.appendChild(cell);
+            return cell;
         };
 
-        // TODOリスト描画
-        const renderTodoLists = () => {
-            elements.incomplete.innerHTML = '';
-            elements.completed.innerHTML = '';
-            
-            const incList = [];
-            const compList = [];
+        const renderFooterTodoLists = () => {
+            const incContainer = $('incompleteTodos');
+            const compContainer = $('completedTodos');
+            incContainer.innerHTML = '';
+            compContainer.innerHTML = '';
 
+            const items = [];
             Object.entries(eventData).forEach(([date, data]) => {
-                if (!data.todos) return;
-                const dayStr = date.split('-')[2];
-                data.todos.forEach((t, idx) => {
-                    const item = { date, day: dayStr, text: t.text, idx };
-                    if (t.completed) compList.push(item);
-                    else incList.push(item);
-                });
+                if (data.todos) {
+                    data.todos.forEach((t, i) => items.push({ date, text: t.text, completed: t.completed, index: i }));
+                }
             });
 
-            const createTodoEl = (item, isCompleted) => {
+            // 当月分を優先してソート
+            items.sort((a, b) => a.date.localeCompare(b.date));
+
+            items.forEach(item => {
+                const day = item.date.split('-')[2];
                 const div = document.createElement('div');
-                div.className = `flex items-center p-3 rounded-xl shadow-sm border ${isCompleted ? 'bg-gray-50 border-gray-100 grayscale' : 'bg-blue-50 border-blue-100'}`;
+                div.className = `flex items-center p-4 rounded-2xl border ${item.completed ? 'bg-white border-gray-100 grayscale' : 'bg-white border-blue-100 shadow-sm'}`;
                 div.innerHTML = `
-                    <input type="checkbox" ${isCompleted ? 'checked' : ''} class="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-3">
+                    <input type="checkbox" ${item.completed ? 'checked' : ''} class="w-5 h-5 rounded-lg border-gray-300 text-blue-600 focus:ring-blue-500 mr-4 transition-all">
                     <div class="flex-1">
-                        <span class="text-[10px] font-bold text-gray-400 block">${item.day}日</span>
-                        <span class="text-sm ${isCompleted ? 'line-through text-gray-400' : 'text-gray-700 font-medium'}">${item.text}</span>
+                        <p class="text-[10px] font-black text-gray-300 uppercase">${day}日</p>
+                        <p class="text-sm font-bold ${item.completed ? 'line-through text-gray-300' : 'text-gray-700'}">${item.text}</p>
                     </div>
                 `;
-                div.querySelector('input').onchange = (e) => toggleTodo(item.date, item.idx, e.target.checked);
-                return div;
-            };
+                div.querySelector('input').onchange = (e) => toggleTodo(item.date, item.index, e.target.checked);
+                (item.completed ? compContainer : incContainer).appendChild(div);
+            });
 
-            incList.sort((a,b) => a.date.localeCompare(b.date)).forEach(i => elements.incomplete.appendChild(createTodoEl(i, false)));
-            compList.sort((a,b) => a.date.localeCompare(b.date)).forEach(i => elements.completed.appendChild(createTodoEl(i, true)));
-            
-            if (incList.length === 0) elements.incomplete.innerHTML = '<p class="text-gray-400 text-sm italic">すべて完了しました！✨</p>';
-            if (compList.length === 0) elements.completed.innerHTML = '<p class="text-gray-400 text-sm italic">まだ完了した項目はありません</p>';
+            if (incContainer.children.length === 0) incContainer.innerHTML = '<p class="text-gray-300 text-xs italic py-4">現在、未完了のタスクはありません 👏</p>';
         };
 
-        // モーダル操作
-        const openModal = (dateKey) => {
-            selectedDate = dateKey;
+        // --- アクション ---
+        const toggleTodo = async (date, idx, state) => {
+            const data = { ...eventData[date] };
+            data.todos[idx].completed = state;
+            await setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'calendar_events', date), data);
+            showToast(state ? "タスク完了！ 🎉" : "タスクを戻しました");
+        };
+
+        const openEditModal = (dateKey) => {
+            selectedDateKey = dateKey;
             const data = eventData[dateKey] || { event: "", color: "#3b82f6", todos: [] };
-            document.getElementById('modalDate').textContent = dateKey.replace(/-/g, '/');
-            document.getElementById('eventInput').value = data.event || "";
-            document.getElementById('eventColor').value = data.color || "#3b82f6";
+            $('modalDate').textContent = dateKey.replace(/-/g, ' / ');
+            $('eventInput').value = data.event || "";
+            $('eventColor').value = data.color || "#3b82f6";
             renderModalTodos(data.todos || []);
-            elements.modal.classList.replace('hidden', 'flex');
+            $('modal').classList.replace('hidden', 'flex');
         };
 
         const renderModalTodos = (todos) => {
-            const list = document.getElementById('todoList');
-            list.innerHTML = '';
+            const container = $('modalTodoList');
+            container.innerHTML = '';
             todos.forEach((t, i) => {
-                const div = document.createElement('div');
-                div.className = "flex items-center space-x-2 bg-gray-50 p-2 rounded-lg border border-gray-100";
-                div.innerHTML = `
-                    <span class="flex-1 text-xs ${t.completed ? 'line-through text-gray-400' : ''}">${t.text}</span>
-                    <button class="text-red-400 hover:text-red-600 text-xs font-bold">削除</button>
-                `;
-                div.querySelector('button').onclick = () => {
+                const d = document.createElement('div');
+                d.className = "flex items-center justify-between bg-gray-50 p-3 rounded-xl";
+                d.innerHTML = `<span class="text-sm font-bold ${t.completed ? 'line-through text-gray-400' : 'text-gray-600'}">${t.text}</span>
+                               <button class="text-red-300 hover:text-red-500 text-lg font-black">&times;</button>`;
+                d.querySelector('button').onclick = () => {
                     todos.splice(i, 1);
-                    saveCurrentDateData({ todos });
+                    saveDateData({ todos });
                     renderModalTodos(todos);
                 };
-                list.appendChild(div);
+                container.appendChild(d);
             });
         };
 
-        // データ保存
-        const saveCurrentDateData = async (overrides) => {
-            if (!currentUserId) return;
-            const data = { ...eventData[selectedDate], ...overrides };
-            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'calendar_events', selectedDate), data);
+        const saveDateData = async (overrides) => {
+            if (!user) return;
+            const data = { ...eventData[selectedDateKey], ...overrides };
+            await setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'calendar_events', selectedDateKey), data);
         };
 
-        const toggleTodo = async (date, idx, state) => {
-            const data = eventData[date];
-            data.todos[idx].completed = state;
-            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'calendar_events', date), data);
-            showStatus(state ? "お疲れ様です！🎉" : "再開しました");
+        // --- イベントリスナー ---
+        $('saveBtn').onclick = async () => {
+            const event = $('eventInput').value;
+            const color = $('eventColor').value;
+            await saveDateData({ event, color });
+            $('modal').classList.replace('flex', 'hidden');
+            showToast("保存しました");
         };
 
-        const saveNotes = async () => {
-            const text = document.getElementById('notesInput').value;
-            const updated = { ...monthlyNotes, [currentEditingField]: text };
-            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'monthly_notes', currentYearMonth()), updated);
-            elements.notesModal.classList.replace('flex', 'hidden');
-            showStatus("保存しました");
-        };
-
-        // イベントリスナー
-        document.getElementById('saveBtn').onclick = async () => {
-            const event = document.getElementById('eventInput').value;
-            const color = document.getElementById('eventColor').value;
-            await saveCurrentDateData({ event, color });
-            elements.modal.classList.replace('flex', 'hidden');
-            showStatus("更新しました");
-        };
-
-        document.getElementById('addTodoBtn').onclick = () => {
-            const input = document.getElementById('newTodoInput');
+        $('addTodoBtn').onclick = () => {
+            const input = $('newTodoInput');
             const text = input.value.trim();
             if (!text) return;
-            const todos = eventData[selectedDate]?.todos || [];
+            const todos = eventData[selectedDateKey]?.todos || [];
             todos.push({ text, completed: false });
-            saveCurrentDateData({ todos });
+            saveDateData({ todos });
             renderModalTodos(todos);
             input.value = '';
         };
 
-        document.getElementById('editGoalBtn').onclick = () => {
-            currentEditingField = 'goal';
-            document.getElementById('notesModalTitle').textContent = "今月の目標を編集";
-            document.getElementById('notesInput').value = monthlyNotes.goal || "";
-            elements.notesModal.classList.replace('hidden', 'flex');
+        $('editGoalBtn').onclick = () => {
+            editingField = 'goal';
+            $('notesModalTitle').textContent = "今月の目標を編集";
+            $('notesInput').value = monthlyNotes.goal || "";
+            $('notesModal').classList.replace('hidden', 'flex');
         };
 
-        document.getElementById('editIssueBtn').onclick = () => {
-            currentEditingField = 'issue';
-            document.getElementById('notesModalTitle').textContent = "今月の課題点を編集";
-            document.getElementById('notesInput').value = monthlyNotes.issue || "";
-            elements.notesModal.classList.replace('hidden', 'flex');
+        $('editIssueBtn').onclick = () => {
+            editingField = 'issue';
+            $('notesModalTitle').textContent = "課題・改善点を編集";
+            $('notesInput').value = monthlyNotes.issue || "";
+            $('notesModal').classList.replace('hidden', 'flex');
         };
 
-        document.getElementById('saveNotesBtn').onclick = saveNotes;
-        document.getElementById('cancelNotesBtn').onclick = () => elements.notesModal.classList.replace('flex', 'hidden');
-        document.getElementById('closeModalBtn').onclick = () => elements.modal.classList.replace('flex', 'hidden');
+        $('saveNotesBtn').onclick = async () => {
+            const text = $('notesInput').value;
+            const updated = { ...monthlyNotes, [editingField]: text };
+            await setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'monthly_notes', getMonthKey()), updated);
+            $('notesModal').classList.replace('flex', 'hidden');
+            showToast("月間メモを更新しました");
+        };
 
-        document.getElementById('prevMonthBtn').onclick = () => {
+        $('cancelNotesBtn').onclick = () => $('notesModal').classList.replace('flex', 'hidden');
+        $('closeModalBtn').onclick = () => $('modal').classList.replace('flex', 'hidden');
+
+        $('prevMonthBtn').onclick = () => {
             currentMonth--;
             if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-            syncMonthlyNotes();
-            renderAll();
+            syncNotes();
+            renderCalendar();
         };
 
-        document.getElementById('nextMonthBtn').onclick = () => {
+        $('nextMonthBtn').onclick = () => {
             currentMonth++;
             if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-            syncMonthlyNotes();
-            renderAll();
+            syncNotes();
+            renderCalendar();
         };
 
         // 表示切り替え
-        const switchView = (isMobile) => {
-            document.body.className = isMobile ? 'bg-gray-100 p-2 sm:p-4 mobile-layout' : 'bg-gray-100 p-2 sm:p-4 pc-layout';
-            document.getElementById('mobileViewBtn').className = isMobile ? 'bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md' : 'bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors';
-            document.getElementById('pcViewBtn').className = !isMobile ? 'bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md' : 'bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors';
-            renderAll();
+        $('mobileViewBtn').onclick = () => {
+            document.body.className = "p-2 mobile-layout";
+            $('mobileViewBtn').className = "px-4 py-2 text-sm font-bold rounded-full border bg-blue-600 text-white border-blue-600 shadow-sm";
+            $('pcViewBtn').className = "px-4 py-2 text-sm font-bold rounded-full border bg-white text-gray-600 border-gray-200";
+        };
+        $('pcViewBtn').onclick = () => {
+            document.body.className = "p-4 pc-layout";
+            $('pcViewBtn').className = "px-4 py-2 text-sm font-bold rounded-full border bg-blue-600 text-white border-blue-600 shadow-sm";
+            $('mobileViewBtn').className = "px-4 py-2 text-sm font-bold rounded-full border bg-white text-gray-600 border-gray-200";
         };
 
-        document.getElementById('mobileViewBtn').onclick = () => switchView(true);
-        document.getElementById('pcViewBtn').onclick = () => switchView(false);
-
-        // 初期化
-        initSync();
+        init();
     </script>
 </body>
 </html>
