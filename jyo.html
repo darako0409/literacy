@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>金融工学 計算ツール (中間テスト対策) - 完全版</title>
+  <title>金融工学 計算・シミュレーション自動化システム - 完璧版</title>
   
   <script src="https://cdn.tailwindcss.com"></script>
   
@@ -26,431 +26,475 @@
   <script type="text/babel" data-type="module">
     import React, { useState, useMemo } from 'react';
     import { createRoot } from 'react-dom/client';
-    import { Calculator, RefreshCcw, Plus, Trash2, AlertCircle } from 'lucide-react';
+    import { Calculator, RefreshCcw, TrendingUp, Landmark, PieChart, LineChart, Target, AlertCircle } from 'lucide-react';
 
     const MODES = [
-      { id: 'portfolio', label: 'ポートフォリオ最適化 (制約付き)' },
-      { id: 'deposit', label: '預金利息 (単利・複利)' },
-      { id: 'loan', label: 'ローン返済 (3方式)' },
-      { id: 'basic', label: '収益率・期待値・分散' },
-      { id: 'historical', label: '過去データ評価' },
-      { id: 'scenario', label: '分散投資 (シナリオ表)' }
+      { id: 'opt_advanced', label: '5. 最適ポートフォリオ (リスク/リターン重視)', icon: Target },
+      { id: 'port_simple', label: '4. 2資産ポートフォリオ (相関係数指定)', icon: PieChart },
+      { id: 'scenario', label: '3. 確率シナリオ (リターン・リスク)', icon: TrendingUp },
+      { id: 'loan', label: '2. ローン返済シミュレーション (3方式)', icon: Landmark },
+      { id: 'deposit', label: '1. 単利・複利の元利合計', icon: LineChart },
     ];
 
     function App() {
-      const [activeMode, setActiveMode] = useState('portfolio');
+      const [activeMode, setActiveMode] = useState('opt_advanced');
 
       const handleReset = () => {
-        if (window.confirm('入力値を初期化しますか？')) {
-          window.location.reload();
-        }
+        if (window.confirm('入力値を初期化しますか？')) window.location.reload();
       };
 
       return (
-        <div className="min-h-screen p-4 md:p-6">
+        <div className="min-h-screen p-4 md:p-8">
           <div className="max-w-6xl mx-auto">
-            <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-800">
-                  <Calculator className="h-7 w-7 text-blue-600" /> 
-                  金融工学 計算ツール
+                <h1 className="flex items-center gap-3 text-2xl md:text-3xl font-bold text-slate-800">
+                  <Calculator className="h-8 w-8 text-blue-600" /> 
+                  金融工学 計算・シミュレーション 完全版
                 </h1>
-                <p className="mt-1 text-sm text-slate-600">授業資料の解き方に合わせて、値を入れるだけで計算できます。</p>
+                <p className="mt-2 text-sm text-slate-600">講義（第2回〜第5回）および宿題のすべての解法に完全対応した自動計算ツールです。</p>
               </div>
-              <button onClick={handleReset} className="flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 text-sm shadow-sm ring-1 ring-slate-200 hover:bg-slate-100 transition-colors">
+              <button onClick={handleReset} className="flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-slate-600 shadow-sm ring-1 ring-slate-200 hover:bg-slate-100 transition-colors">
                 <RefreshCcw className="h-4 w-4" /> 初期値に戻す
               </button>
             </div>
 
-            {activeMode === 'portfolio' && <PortfolioMode activeMode={activeMode} setActiveMode={setActiveMode} />}
-            {activeMode === 'deposit' && <DepositMode activeMode={activeMode} setActiveMode={setActiveMode} />}
-            {activeMode === 'loan' && <LoanMode activeMode={activeMode} setActiveMode={setActiveMode} />}
-            {activeMode === 'basic' && <BasicMode activeMode={activeMode} setActiveMode={setActiveMode} />}
-            {activeMode === 'historical' && <HistoricalMode activeMode={activeMode} setActiveMode={setActiveMode} />}
-            {activeMode === 'scenario' && <ScenarioMode activeMode={activeMode} setActiveMode={setActiveMode} />}
+            <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
+              {/* 左側: メニュー＆入力エリア */}
+              <div className="rounded-2xl bg-white p-5 md:p-6 shadow-sm ring-1 ring-slate-200 h-fit">
+                <label className="block mb-6 border-b border-slate-100 pb-6">
+                  <span className="text-sm font-bold text-slate-700 flex items-center gap-2 mb-3">
+                    機能を選択
+                  </span>
+                  <select 
+                    value={activeMode} 
+                    onChange={e => setActiveMode(e.target.value)}
+                    className="w-full rounded-xl border-2 border-blue-100 bg-blue-50/30 px-3 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 font-bold text-slate-800 transition-all cursor-pointer"
+                  >
+                    {MODES.map(m => (
+                      <option key={m.id} value={m.id}>{m.label}</option>
+                    ))}
+                  </select>
+                </label>
+
+                {activeMode === 'opt_advanced' && <InputsOptAdvanced />}
+                {activeMode === 'port_simple' && <InputsPortSimple />}
+                {activeMode === 'scenario' && <InputsScenario />}
+                {activeMode === 'loan' && <InputsLoan />}
+                {activeMode === 'deposit' && <InputsDeposit />}
+              </div>
+
+              {/* 右側: 結果表示エリア */}
+              <div className="rounded-2xl bg-white p-5 md:p-6 shadow-sm ring-1 ring-slate-200">
+                <h2 className="mb-6 text-xl font-bold text-slate-800 border-l-4 border-blue-600 pl-3">計算結果・シミュレーション</h2>
+                {activeMode === 'opt_advanced' && <ResultsOptAdvanced />}
+                {activeMode === 'port_simple' && <ResultsPortSimple />}
+                {activeMode === 'scenario' && <ResultsScenario />}
+                {activeMode === 'loan' && <ResultsLoan />}
+                {activeMode === 'deposit' && <ResultsDeposit />}
+              </div>
+            </div>
           </div>
         </div>
       );
     }
 
-    /* =========================================================
-       Mode Selector Component
-       ========================================================= */
-    function ModeSelector({ activeMode, setActiveMode }) {
+    /* --- 共通のUIコンポーネント --- */
+    function InputField({ label, value, onChange, unit, step = "1", type = "number", className="" }) {
       return (
-        <label className="block mb-6 border-b border-slate-100 pb-5">
-          <span className="text-sm font-semibold text-slate-700">計算する内容</span>
-          <select 
-            value={activeMode} 
-            onChange={e => setActiveMode(e.target.value)}
-            className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-800 transition-shadow"
-          >
-            {MODES.map(m => (
-              <option key={m.id} value={m.id}>{m.label}</option>
-            ))}
-          </select>
-        </label>
-      );
-    }
-
-    function InputField({ label, value, onChange, unit, step = "1", type = "number" }) {
-      return (
-        <label className="block">
-          <span className="text-sm text-slate-600 font-medium">{label}</span>
-          <div className="mt-1 flex items-center gap-2">
+        <label className={`block ${className}`}>
+          <span className="text-sm text-slate-600 font-bold">{label}</span>
+          <div className="mt-1.5 flex items-center gap-2">
             <input 
               type={type} step={step} value={value} onChange={onChange}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 transition-shadow" 
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 transition-shadow text-slate-800 font-medium" 
             />
-            {unit && <span className="text-sm text-slate-500 font-medium w-6">{unit}</span>}
+            {unit && <span className="text-sm text-slate-500 font-bold w-6">{unit}</span>}
           </div>
         </label>
       );
     }
 
     /* =========================================================
-       1. ポートフォリオ最適化 (リッチUI版)
+       5. 最適ポートフォリオ (リスク重視 / リターン重視)
        ========================================================= */
-    function PortfolioMode({ activeMode, setActiveMode }) {
-      const [muX, setMuX] = useState(8);
-      const [sigX, setSigX] = useState(2);
-      const [muY, setMuY] = useState(2);
-      const [sigY, setSigY] = useState(1);
-      const [rho, setRho] = useState(0);
-      const [optType, setOptType] = useState('risk_focused');
-      const [targetMu, setTargetMu] = useState(5);
-
-      const varX = sigX * sigX;
-      const varY = sigY * sigY;
-      const covXY = rho * sigX * sigY;
-      const denominator = varX + varY - 2 * covXY;
-      
-      // リスク最小化点
-      const a_min_var = denominator !== 0 ? (varY - covXY) / denominator : 0;
-      const min_var = (a_min_var * a_min_var) * varX + ((1 - a_min_var) * (1 - a_min_var)) * varY + 2 * a_min_var * (1 - a_min_var) * covXY;
-      const min_std = Math.sqrt(Math.max(0, min_var));
-
-      // 制約付き最適解
-      let optA = 0, optMu = 0, optVar = 0, optStd = 0, error = null;
-      
-      if (muX !== muY) {
-        const diff = muX - muY;
-        const a_bound = (targetMu - muY) / diff;
-        if (diff > 0) {
-          if (a_bound > 1) error = "目標リターンが高すぎます。";
-          else optA = Math.min(Math.max(a_bound, a_min_var), 1);
-        } else {
-          if (a_bound < 0) error = "目標リターンが高すぎます。";
-          else optA = Math.max(Math.min(a_bound, a_min_var), 0);
-        }
-        if (!error) {
-          optMu = optA * muX + (1 - optA) * muY;
-          optVar = (optA * optA) * varX + ((1 - optA) * (1 - optA)) * varY + 2 * optA * (1 - optA) * covXY;
-          optStd = Math.sqrt(Math.max(0, optVar));
-        }
-      } else {
-        error = "XとYの期待値が同じため計算できません。";
-      }
-
-      // 平方完成の定数計算 (σW^2 = A(a - B)^2 + C)
-      const A_coef = denominator;
-      const B_coef = A_coef !== 0 ? a_min_var : 0;
-      const C_coef = min_var;
+    let optState = { muX:8, sigX:2, muY:2, sigY:1, rho:-0.5, mode:'risk', tMu:3, maxSig:1.2, set:null };
+    
+    function InputsOptAdvanced() {
+      const [s, setS] = useState(optState);
+      optState.set = setS;
+      const update = (k, v) => { optState[k] = v; setS({...optState}); };
 
       return (
-        <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
-          {/* 左側: 入力エリア */}
-          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 h-fit">
-            <ModeSelector activeMode={activeMode} setActiveMode={setActiveMode} />
-            
-            <div className="space-y-4">
-              <InputField label="Xの期待収益率 μX" value={muX} onChange={e=>setMuX(Number(e.target.value))} unit="%" />
-              <InputField label="Xの標準偏差 σX" value={sigX} onChange={e=>setSigX(Number(e.target.value))} unit="%" />
-              <div className="h-px bg-slate-100 my-2"></div>
-              <InputField label="Yの期待収益率 μY" value={muY} onChange={e=>setMuY(Number(e.target.value))} unit="%" />
-              <InputField label="Yの標準偏差 σY" value={sigY} onChange={e=>setSigY(Number(e.target.value))} unit="%" />
-              <div className="h-px bg-slate-100 my-2"></div>
-              <InputField label="相関係数 ρ" value={rho} onChange={e=>setRho(Number(e.target.value))} step="0.1" />
-              <div className="h-px bg-slate-100 my-2"></div>
-              <InputField label="最低リターン条件" value={targetMu} onChange={e=>setTargetMu(Number(e.target.value))} unit="%" />
-            </div>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
+            <InputField label="資産X 期待値 μX" value={s.muX} onChange={e=>update('muX', Number(e.target.value))} unit="%" />
+            <InputField label="資産X リスク σX" value={s.sigX} onChange={e=>update('sigX', Number(e.target.value))} unit="%" />
+            <InputField label="資産Y 期待値 μY" value={s.muY} onChange={e=>update('muY', Number(e.target.value))} unit="%" />
+            <InputField label="資産Y リスク σY" value={s.sigY} onChange={e=>update('sigY', Number(e.target.value))} unit="%" />
           </div>
-
-          {/* 右側: 結果エリア */}
-          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <h2 className="mb-5 text-xl font-bold text-slate-800">計算結果</h2>
-            
-            {error ? (
-              <div className="rounded-2xl bg-red-50 p-5 ring-1 ring-red-200 text-red-600 font-bold">{error}</div>
+          <InputField label="相関係数 ρXY (-1.0 ～ 1.0)" value={s.rho} onChange={e=>update('rho', Number(e.target.value))} step="0.1" className="bg-slate-50 p-3 rounded-xl border border-slate-100" />
+          
+          <div className="mt-6 border-2 border-red-200 bg-red-50/50 p-4 rounded-xl">
+            <label className="block mb-4">
+              <span className="text-sm font-bold text-red-700 flex items-center gap-1 mb-2">
+                <Target className="w-4 h-4" /> 投資スタンス（重視）
+              </span>
+              <select value={s.mode} onChange={e=>update('mode', e.target.value)} className="w-full rounded-lg border border-red-200 px-3 py-2 font-bold text-red-900 outline-none focus:ring-2 focus:ring-red-400 cursor-pointer">
+                <option value="risk">🛡️ リスク重視型 (リターン閾値以上)</option>
+                <option value="return">🔥 リターン重視型 (リスク上限以下)</option>
+              </select>
+            </label>
+            {s.mode === 'risk' ? (
+              <InputField label="最低限必要なリターン (%)" value={s.tMu} onChange={e=>update('tMu', Number(e.target.value))} step="0.1" />
             ) : (
-              <div className="space-y-5">
-                <div className="rounded-2xl bg-blue-50 p-5 ring-1 ring-blue-200 shadow-inner">
-                  <h3 className="text-lg font-bold text-blue-900 mb-2">【最終的な最適解】</h3>
-                  <div className="flex flex-col sm:flex-row items-baseline gap-4 mb-3">
-                    <p className="text-3xl font-bold text-blue-700">Xへの配分 <i className="font-serif">a</i> = {(optA * 100).toFixed(2)}%</p>
-                    <p className="text-lg font-medium text-blue-600">(Yへ {(100 - optA*100).toFixed(2)}%)</p>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4 text-slate-700 mt-4 bg-white/60 p-4 rounded-xl">
-                    <div><span className="text-xs text-slate-500 block mb-1">期待リターン</span><span className="font-bold text-lg">{optMu.toFixed(4)}%</span></div>
-                    <div><span className="text-xs text-slate-500 block mb-1">分散 σ²</span><span className="font-bold text-lg">{optVar.toFixed(4)}</span></div>
-                    <div><span className="text-xs text-slate-500 block mb-1">標準偏差 σ</span><span className="font-bold text-lg">{optStd.toFixed(4)}%</span></div>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl bg-white p-5 ring-1 ring-slate-200 shadow-sm">
-                  <h3 className="mb-4 text-lg font-bold text-slate-800">機会曲線と最適解</h3>
-                  <OpportunityCurveSVG 
-                    muX={muX} sigX={sigX} muY={muY} sigY={sigY} rho={rho} 
-                    optA={optA} minVarA={a_min_var} 
-                  />
-                  <div className="mt-4 flex flex-wrap gap-4 text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                    <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-blue-500"></span> 投資機会曲線</div>
-                    <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-green-500"></span> リスク最小点 (a={(a_min_var*100).toFixed(1)}%)</div>
-                    <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-red-500"></span> 制約付き最適解 (a={(optA*100).toFixed(1)}%)</div>
-                  </div>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="rounded-2xl bg-slate-50 p-5 ring-1 ring-slate-200">
-                    <h3 className="mb-3 font-bold text-slate-800 border-b border-slate-200 pb-2">① リターン式</h3>
-                    <div className="space-y-2 text-slate-700 font-mono text-sm">
-                      <p><i>μ</i><sub>W</sub> = a<i>μ</i><sub>X</sub> + (1-a)<i>μ</i><sub>Y</sub></p>
-                      <p><i>μ</i><sub>W</sub> = a({muX}) + (1-a)({muY})</p>
-                      <p className="font-bold text-blue-700 mt-2 bg-blue-50 p-2 rounded"><i>μ</i><sub>W</sub> = {(muX - muY).toFixed(4)}a + {muY.toFixed(4)}</p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl bg-slate-50 p-5 ring-1 ring-slate-200">
-                    <h3 className="mb-3 font-bold text-slate-800 border-b border-slate-200 pb-2">② リターン制約</h3>
-                    <div className="space-y-2 text-slate-700 font-mono text-sm">
-                      <p><i>μ</i><sub>W</sub> ≥ {targetMu}%</p>
-                      <p>{(muX - muY).toFixed(4)}a + {muY.toFixed(4)} ≥ {targetMu}</p>
-                      <p className="font-bold text-blue-700 mt-2 bg-blue-50 p-2 rounded">
-                        a {muX > muY ? '≥' : '≤'} {(((targetMu - muY) / (muX - muY))*100).toFixed(2)}%
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl bg-slate-50 p-5 ring-1 ring-slate-200 md:col-span-2">
-                    <h3 className="mb-3 font-bold text-slate-800 border-b border-slate-200 pb-2">③ リスク式と平方完成</h3>
-                    <div className="space-y-2 text-slate-700 font-mono text-sm">
-                      <p><i>σ</i><sub>W</sub><sup>2</sup> = a<sup>2</sup><i>σ</i><sub>X</sub><sup>2</sup> + (1-a)<sup>2</sup><i>σ</i><sub>Y</sub><sup>2</sup> + 2a(1-a)<i>ρσ</i><sub>X</sub><i>σ</i><sub>Y</sub></p>
-                      <p>展開・整理後：</p>
-                      <p><i>σ</i><sub>W</sub><sup>2</sup> = {A_coef.toFixed(4)}a<sup>2</sup> {(-2*varY + 2*covXY) >= 0 ? '+' : ''}{(-2*varY + 2*covXY).toFixed(4)}a + {varY.toFixed(4)}</p>
-                      <div className="mt-3 pt-3 border-t border-slate-200">
-                        <p>平方完成：</p>
-                        <p className="font-bold text-red-600 bg-red-50 p-2 rounded inline-block">
-                          <i>σ</i><sub>W</sub><sup>2</sup> = {A_coef.toFixed(4)}(a - {B_coef.toFixed(4)})<sup>2</sup> + {C_coef.toFixed(4)}
-                        </p>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-2">※ リスクが最小になるのはカッコ内が0のとき、つまり a = {(B_coef*100).toFixed(2)}% の点。</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <InputField label="許容できる最大リスク (%)" value={s.maxSig} onChange={e=>update('maxSig', Number(e.target.value))} step="0.1" />
             )}
           </div>
         </div>
       );
     }
 
-    /* グラフ描画サブコンポーネント */
-    function OpportunityCurveSVG({ muX, sigX, muY, sigY, rho, optA, minVarA }) {
-      const curveData = [];
-      let minStd = Infinity, maxStd = -Infinity, minMu = Infinity, maxMu = -Infinity;
+    function ResultsOptAdvanced() {
+      const s = optState;
+      const getReturn = (a) => a * s.muX + (1 - a) * s.muY;
+      const getRisk = (a) => Math.sqrt(Math.max(0, (a*a)*(s.sigX*s.sigX) + ((1-a)*(1-a))*(s.sigY*s.sigY) + 2*a*(1-a)*s.rho*s.sigX*s.sigY));
 
-      for (let i = 0; i <= 100; i += 1) {
-        const a = i / 100;
-        const mu = a * muX + (1 - a) * muY;
-        const variance = (a * a) * (sigX * sigX) + ((1 - a) * (1 - a)) * (sigY * sigY) + 2 * a * (1 - a) * rho * sigX * sigY;
-        const std = Math.sqrt(Math.max(0, variance)); 
-        curveData.push({ a, x: std, y: mu });
-        if (std < minStd) minStd = std; if (std > maxStd) maxStd = std;
-        if (mu < minMu) minMu = mu; if (mu > maxMu) maxMu = mu;
+      // MVP (最小リスク)
+      const num = (s.sigY*s.sigY) - (s.rho*s.sigX*s.sigY);
+      const den = (s.sigX*s.sigX) + (s.sigY*s.sigY) - (2*s.rho*s.sigX*s.sigY);
+      const mvp_a = den !== 0 ? num / den : 0;
+      const mvp_mu = getReturn(mvp_a);
+      const mvp_sig = getRisk(mvp_a);
+
+      let optA = null, error = null;
+
+      if (s.mode === 'risk') {
+        const requiredA = s.muX !== s.muY ? (s.tMu - s.muY) / (s.muX - s.muY) : 0;
+        if (s.muX > s.muY) {
+          if (requiredA > 1) error = "目標リターンが高すぎます。";
+          else optA = Math.max(requiredA, mvp_a);
+        } else {
+          if (requiredA < 0) error = "目標リターンが高すぎます。";
+          else optA = Math.min(requiredA, mvp_a);
+        }
+      } else { // return focus
+        let max_ret = -Infinity;
+        for (let i = 0; i <= 1000; i++) {
+          let a_curr = i / 1000;
+          if (getRisk(a_curr) <= s.maxSig && getReturn(a_curr) > max_ret) {
+            max_ret = getReturn(a_curr);
+            optA = a_curr;
+          }
+        }
+        if (optA === null) error = "制約を満たすポートフォリオがありません (リスク上限を上げてください)。";
       }
-      
-      const getVal = (a) => {
-        const mu = a * muX + (1 - a) * muY;
-        const variance = (a * a) * (sigX * sigX) + ((1 - a) * (1 - a)) * (sigY * sigY) + 2 * a * (1 - a) * rho * sigX * sigY;
-        return { std: Math.sqrt(Math.max(0, variance)), mu };
-      };
-
-      const optPt = getVal(optA);
-      const minPt = getVal(minVarA);
-
-      const xMax = Math.max(maxStd * 1.2, 5), xMin = 0; 
-      const yMax = Math.max(maxMu * 1.2, Math.max(muX, muY) * 1.2);
-      const yMin = Math.min(minMu < 0 ? minMu * 1.2 : 0, 0);
-
-      const width = 600, height = 300, margin = { top: 20, right: 20, bottom: 40, left: 50 };
-      const innerW = width - margin.left - margin.right, innerH = height - margin.top - margin.bottom;
-
-      const getX = (val) => margin.left + ((val - xMin) / (xMax - xMin)) * innerW;
-      const getY = (val) => margin.top + innerH - ((val - yMin) / (yMax - yMin)) * innerH;
-
-      const pathD = curveData.map((pt, i) => `${i===0?'M':'L'} ${getX(pt.x)} ${getY(pt.y)}`).join(' ');
 
       return (
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto bg-slate-50/50 rounded-xl border border-slate-100">
-          <line x1={margin.left} y1={getY(0)} x2={width-margin.right} y2={getY(0)} stroke="#cbd5e1" strokeWidth="1" />
-          <line x1={getX(0)} y1={margin.top} x2={getX(0)} y2={height-margin.bottom} stroke="#cbd5e1" strokeWidth="1" />
+        <div className="space-y-6">
+          <div className="bg-slate-100 p-4 rounded-xl border border-slate-200">
+            <span className="text-sm font-bold text-slate-600 block mb-1">数学的最小リスク資産 (MVP) の配分率 a</span>
+            <span className="text-2xl font-bold text-slate-800">{(mvp_a*100).toFixed(2)}%</span>
+            <span className="text-sm text-slate-500 ml-3">(リスク: {mvp_sig.toFixed(2)}%, リターン: {mvp_mu.toFixed(2)}%)</span>
+          </div>
+
+          {error ? (
+            <div className="bg-red-50 text-red-600 p-4 rounded-xl border border-red-200 font-bold flex items-center gap-2">
+              <AlertCircle className="w-5 h-5"/> {error}
+            </div>
+          ) : (
+            <div className={`p-5 rounded-xl border-2 ${s.mode === 'risk' ? 'border-blue-300 bg-blue-50/50' : 'border-orange-300 bg-orange-50/50'}`}>
+              <h3 className={`text-sm font-bold mb-2 ${s.mode === 'risk' ? 'text-blue-800' : 'text-orange-800'}`}>
+                {s.mode === 'risk' ? `条件：リターン ${s.tMu}% 以上でリスク最小` : `条件：リスク ${s.maxSig}% 以下でリターン最大`}
+              </h3>
+              <div className="flex items-baseline gap-3 mb-2">
+                <span className={`text-4xl font-extrabold ${s.mode === 'risk' ? 'text-blue-700' : 'text-orange-700'}`}>{(optA*100).toFixed(2)}%</span>
+                <span className="text-sm font-bold text-slate-500">の配分が最適</span>
+              </div>
+              <div className="flex gap-4 text-sm font-bold text-slate-700 bg-white px-3 py-2 rounded-lg w-fit shadow-sm">
+                <span>達成リターン: {getReturn(optA).toFixed(3)}%</span>
+                <span className="text-slate-300">|</span>
+                <span>抑えたリスク: {getRisk(optA).toFixed(3)}%</span>
+              </div>
+            </div>
+          )}
+
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <h3 className="text-sm font-bold text-slate-700 mb-4">機会曲線と最適解のプロット</h3>
+            <OpportunityCurveSVG s={s} optA={optA} mvpA={mvp_a} getRisk={getRisk} getReturn={getReturn} />
+          </div>
+        </div>
+      );
+    }
+
+    function OpportunityCurveSVG({ s, optA, mvpA, getRisk, getReturn }) {
+      const pts = [];
+      let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
+      
+      for(let i=0; i<=100; i++) {
+        let a = i/100;
+        let x = getRisk(a), y = getReturn(a);
+        pts.push({x, y});
+        if(x < minX) minX=x; if(x > maxX) maxX=x;
+        if(y < minY) minY=y; if(y > maxY) maxY=y;
+      }
+
+      const w=600, h=300, pad=40;
+      const xRange = Math.max(maxX*1.1, s.mode==='return'? s.maxSig*1.2 : 0) - 0;
+      const yRange = maxY*1.2 - Math.min(0, minY);
+      
+      const getPx = val => pad + (val / xRange) * (w - pad*2);
+      const getPy = val => h - pad - ((val - Math.min(0, minY)) / yRange) * (h - pad*2);
+      
+      const pathD = pts.map((p,i)=>`${i===0?'M':'L'} ${getPx(p.x)} ${getPy(p.y)}`).join(' ');
+
+      return (
+        <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-auto bg-slate-50 rounded-lg">
+          {/* Axes */}
+          <line x1={pad} y1={getPy(0)} x2={w-pad} y2={getPy(0)} stroke="#cbd5e1" strokeWidth="2" />
+          <line x1={getPx(0)} y1={pad} x2={getPx(0)} y2={h-pad} stroke="#cbd5e1" strokeWidth="2" />
+          <text x={w/2} y={h-10} fontSize="12" fill="#64748b" textAnchor="middle" fontWeight="bold">リスク (標準偏差 σ) %</text>
+          <text x={15} y={h/2} fontSize="12" fill="#64748b" textAnchor="middle" fontWeight="bold" transform={`rotate(-90, 15, ${h/2})`}>リターン (μ) %</text>
           
-          <path d={pathD} fill="none" stroke="#3b82f6" strokeWidth="3" strokeLinecap="round" />
+          {/* Curve */}
+          <path d={pathD} fill="none" stroke="#94a3b8" strokeWidth="4" strokeLinecap="round" />
           
-          {/* Points */}
-          <circle cx={getX(minPt.std)} cy={getY(minPt.mu)} r="6" fill="#22c55e" stroke="white" strokeWidth="2" />
-          <circle cx={getX(optPt.std)} cy={getY(optPt.mu)} r="7" fill="#ef4444" stroke="white" strokeWidth="2" />
+          {/* Constraints Lines */}
+          {s.mode === 'risk' && (
+            <line x1={pad} y1={getPy(s.tMu)} x2={w-pad} y2={getPy(s.tMu)} stroke="#bfdbfe" strokeWidth="2" strokeDasharray="5,5" />
+          )}
+          {s.mode === 'return' && (
+            <line x1={getPx(s.maxSig)} y1={pad} x2={getPx(s.maxSig)} y2={h-pad} stroke="#fed7aa" strokeWidth="2" strokeDasharray="5,5" />
+          )}
+
+          {/* MVP Point */}
+          <circle cx={getPx(getRisk(mvpA))} cy={getPy(getReturn(mvpA))} r="6" fill="#64748b" stroke="#fff" strokeWidth="2" />
           
-          {/* Labels */}
-          <text x={getX(minPt.std) + 10} y={getY(minPt.mu) - 10} fontSize="12" fill="#166534" fontWeight="bold">Min Risk</text>
-          <text x={getX(optPt.std) + 10} y={getY(optPt.mu) + 15} fontSize="12" fill="#991b1b" fontWeight="bold">Optimal</text>
-          
-          <text x={width/2} y={height - 10} fontSize="12" textAnchor="middle" fill="#64748b">リスク (標準偏差 σ) %</text>
-          <text x={15} y={height/2} fontSize="12" textAnchor="middle" fill="#64748b" transform={`rotate(-90, 15, ${height/2})`}>リターン (μ) %</text>
+          {/* Optimal Point */}
+          {optA !== null && (
+            <circle cx={getPx(getRisk(optA))} cy={getPy(getReturn(optA))} r="8" fill={s.mode==='risk'?'#2563eb':'#ea580c'} stroke="#fff" strokeWidth="2" />
+          )}
         </svg>
       );
     }
 
     /* =========================================================
-       2. 預金利息
+       4. 2資産ポートフォリオ (相関係数指定)
        ========================================================= */
-    function DepositMode({ activeMode, setActiveMode }) {
-      const [principal, setPrincipal] = useState(100);
-      const [rate, setRate] = useState(5);
-      const [years, setYears] = useState(1);
-
-      const r = rate / 100;
-      const simpleInterest = principal * (1 + r * years);
-      const compoundInterest = principal * Math.pow(1 + r, years);
-
-      return (
-        <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
-          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 h-fit">
-            <ModeSelector activeMode={activeMode} setActiveMode={setActiveMode} />
-            <div className="space-y-4">
-              <InputField label="元金 (V₀)" value={principal} onChange={e=>setPrincipal(Number(e.target.value))} />
-              <InputField label="単位期間あたりの利子率 (r)" value={rate} onChange={e=>setRate(Number(e.target.value))} unit="%" />
-              <InputField label="期間 (T)" value={years} onChange={e=>setYears(Number(e.target.value))} />
-            </div>
-          </div>
-          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <h2 className="mb-5 text-xl font-bold text-slate-800">計算結果</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-slate-50 p-5 rounded-xl border border-slate-200">
-                <h3 className="font-bold text-slate-700 mb-2">単利による計算</h3>
-                <p className="text-sm font-mono text-slate-500 mb-4">V_T = V₀(1 + rT)</p>
-                <div className="text-3xl font-bold text-slate-800">{simpleInterest.toLocaleString(undefined, { maximumFractionDigits: 4 })}</div>
-                <p className="text-sm text-slate-500 mt-2">利息分: {(simpleInterest - principal).toLocaleString(undefined, { maximumFractionDigits: 4 })}</p>
-              </div>
-              <div className="bg-blue-50 p-5 rounded-xl border border-blue-200">
-                <h3 className="font-bold text-blue-900 mb-2">複利による計算</h3>
-                <p className="text-sm font-mono text-blue-700 mb-4">V_T = V₀(1 + r)^T</p>
-                <div className="text-3xl font-bold text-blue-800">{compoundInterest.toLocaleString(undefined, { maximumFractionDigits: 4 })}</div>
-                <p className="text-sm text-blue-600 mt-2">利息分: {(compoundInterest - principal).toLocaleString(undefined, { maximumFractionDigits: 4 })}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    /* =========================================================
-       3. ローン返済
-       ========================================================= */
-    function LoanMode({ activeMode, setActiveMode }) {
-      const [principal, setPrincipal] = useState(1000);
-      const [rate, setRate] = useState(5);
-      const [years, setYears] = useState(10);
-
-      const r = rate / 100;
-      const lumpSumTotal = principal + (principal * r * years);
-      const principalPerYear = principal / years;
-      
-      let principalEqTotalInterest = 0;
-      for (let i = 1; i <= years; i++) principalEqTotalInterest += (principal - principalPerYear * (i - 1)) * r;
-      const principalEqTotal = principal + principalEqTotalInterest;
-
-      const Y = r > 0 ? (principal * r) / (1 - Math.pow(1 + r, -years)) : principal / years;
-      const equalPaymentTotal = Y * years;
-
-      return (
-        <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
-          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 h-fit">
-            <ModeSelector activeMode={activeMode} setActiveMode={setActiveMode} />
-            <div className="space-y-4">
-              <InputField label="借入元金 (万円)" value={principal} onChange={e=>setPrincipal(Number(e.target.value))} />
-              <InputField label="利子率" value={rate} onChange={e=>setRate(Number(e.target.value))} unit="%" />
-              <InputField label="期間 (年)" value={years} onChange={e=>setYears(Number(e.target.value))} />
-            </div>
-          </div>
-          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <h2 className="mb-5 text-xl font-bold text-slate-800">計算結果 (総支払額の比較)</h2>
-            <div className="space-y-4">
-              <ResultCard title="① 一括返済" desc="毎年末に利息支払い、最終年に元金返済" total={lumpSumTotal} />
-              <ResultCard title="② 元金均等返済" desc="毎年末に「元金均等額＋残高に対する利息」を返済" total={principalEqTotal} />
-              <ResultCard title="③ 元利均等返済" desc="毎年末に同じ金額(Y)を返済" total={equalPaymentTotal} highlight={true} extra={`毎年返済額: ${Y.toFixed(2)}`} />
-            </div>
-          </div>
-        </div>
-      );
-    }
+    let portSimpleState = { muX:10, sigX:20, muY:30, sigY:40, a:0.5, rho:0.0, set:null };
     
-    function ResultCard({ title, desc, total, highlight, extra }) {
+    function InputsPortSimple() {
+      const [s, setS] = useState(portSimpleState);
+      portSimpleState.set = setS;
+      const update = (k, v) => { portSimpleState[k] = v; setS({...portSimpleState}); };
+
       return (
-        <div className={`p-4 rounded-xl border ${highlight ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-slate-200'}`}>
-          <div className="flex justify-between items-center mb-1">
-            <h3 className={`font-bold ${highlight ? 'text-blue-900' : 'text-slate-800'}`}>{title}</h3>
-            <span className={`text-2xl font-bold ${highlight ? 'text-blue-700' : 'text-slate-900'}`}>{total.toLocaleString(undefined, {maximumFractionDigits:2})}</span>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <InputField label="資産X 期待値 μX" value={s.muX} onChange={e=>update('muX', Number(e.target.value))} unit="%" />
+            <InputField label="資産X リスク σX" value={s.sigX} onChange={e=>update('sigX', Number(e.target.value))} unit="%" />
+            <InputField label="資産Y 期待値 μY" value={s.muY} onChange={e=>update('muY', Number(e.target.value))} unit="%" />
+            <InputField label="資産Y リスク σY" value={s.sigY} onChange={e=>update('sigY', Number(e.target.value))} unit="%" />
           </div>
-          <p className="text-xs text-slate-500 mb-2">{desc}</p>
-          {extra && <p className="text-sm font-medium text-blue-800">{extra}</p>}
+          <InputField label="資産Xへの投資比率 a (0.0~1.0)" value={s.a} onChange={e=>update('a', Number(e.target.value))} step="0.1" className="bg-slate-50 p-3 rounded-xl border border-slate-100 mt-2" />
+          <InputField label="自由指定の相関係数 ρ (-1.0~1.0)" value={s.rho} onChange={e=>update('rho', Number(e.target.value))} step="0.1" className="bg-blue-50 p-3 rounded-xl border border-blue-200 mt-2" />
+        </div>
+      );
+    }
+
+    function ResultsPortSimple() {
+      const s = portSimpleState;
+      const ret = s.a * s.muX + (1 - s.a) * s.muY;
+      const getRisk = (rho) => Math.sqrt((s.a*s.a)*(s.sigX*s.sigX) + ((1-s.a)*(1-s.a))*(s.sigY*s.sigY) + 2*s.a*(1-s.a)*rho*s.sigX*s.sigY);
+
+      return (
+        <div className="space-y-5">
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <span className="text-sm font-bold text-slate-600 block mb-1">指定比率 (a = {s.a}) の 期待収益率</span>
+            <span className="text-3xl font-extrabold text-slate-800">{ret.toFixed(2)} %</span>
+          </div>
+          <div className="bg-blue-50 p-4 rounded-xl border-l-4 border-l-blue-500 shadow-sm">
+            <span className="text-sm font-bold text-blue-800 block mb-1">自由指定した相関係数 (ρ = {s.rho}) の リスク</span>
+            <span className="text-3xl font-extrabold text-blue-700">{getRisk(s.rho).toFixed(2)} %</span>
+          </div>
+          
+          <table className="w-full text-left text-sm border-collapse rounded-xl overflow-hidden shadow-sm ring-1 ring-slate-200">
+            <thead className="bg-slate-100 text-slate-700">
+              <tr>
+                <th className="p-3 border-b border-slate-200 font-bold">宿題の条件 / 相関係数 ρ</th>
+                <th className="p-3 border-b border-slate-200 font-bold">ポートフォリオのリスク σw</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white">
+              <tr className="border-b border-slate-100 hover:bg-slate-50"><td className="p-3 font-medium">ρ = 0 のとき (問2)</td><td className="p-3 font-bold text-slate-800">{getRisk(0).toFixed(2)} %</td></tr>
+              <tr className="border-b border-slate-100 hover:bg-slate-50"><td className="p-3 font-medium">ρ = -1 のとき (問3)</td><td className="p-3 font-bold text-slate-800">{getRisk(-1).toFixed(2)} %</td></tr>
+              <tr className="border-b border-slate-100 hover:bg-slate-50"><td className="p-3 font-medium">ρ = 0.5 のとき (問4)</td><td className="p-3 font-bold text-slate-800">{getRisk(0.5).toFixed(2)} %</td></tr>
+            </tbody>
+          </table>
         </div>
       );
     }
 
     /* =========================================================
-       4, 5, 6 の簡易実装 (タブ機能維持のため)
+       3. 確率シナリオ
        ========================================================= */
-    function BasicMode({ activeMode, setActiveMode }) {
-      const [p0, setP0] = useState(1000);
-      const [p1, setP1] = useState(1500);
+    let scenarioState = { 
+      states: [ {p:50, r:25}, {p:30, r:10}, {p:20, r:-25} ], 
+      set:null 
+    };
+
+    function InputsScenario() {
+      const [s, setS] = useState(scenarioState);
+      scenarioState.set = setS;
+      const update = (idx, field, val) => {
+        const newStates = [...s.states];
+        newStates[idx][field] = Number(val);
+        scenarioState.states = newStates;
+        setS({...scenarioState});
+      };
+
       return (
-        <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
-          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 h-fit">
-            <ModeSelector activeMode={activeMode} setActiveMode={setActiveMode} />
-            <div className="space-y-4">
-              <InputField label="購入価格 (P₀)" value={p0} onChange={e=>setP0(Number(e.target.value))} />
-              <InputField label="売却価格 (P₁)" value={p1} onChange={e=>setP1(Number(e.target.value))} />
+        <div className="space-y-3">
+          <p className="text-sm font-bold text-slate-600 mb-2">状態ごとの確率と収益率を入力:</p>
+          {s.states.map((st, i) => (
+            <div key={i} className="flex gap-4 items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
+              <span className="font-bold text-slate-500 w-12">状態{i+1}</span>
+              <InputField label="確率" value={st.p} onChange={e=>update(i, 'p', e.target.value)} unit="%" className="flex-1" />
+              <InputField label="収益率" value={st.r} onChange={e=>update(i, 'r', e.target.value)} unit="%" className="flex-1" />
             </div>
+          ))}
+        </div>
+      );
+    }
+
+    function ResultsScenario() {
+      const s = scenarioState;
+      const totalP = s.states.reduce((sum, st) => sum + st.p, 0);
+      
+      if (Math.abs(totalP - 100) > 0.01) {
+        return <div className="bg-red-50 text-red-600 p-4 rounded-xl border border-red-200 font-bold">確率の合計を100%にしてください (現在: {totalP}%)</div>;
+      }
+
+      const mu = s.states.reduce((sum, st) => sum + (st.p/100)*st.r, 0);
+      const variance = s.states.reduce((sum, st) => sum + (st.p/100)*Math.pow(st.r - mu, 2), 0);
+      const sig = Math.sqrt(variance);
+
+      return (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-center">
+            <span className="text-xs font-bold text-slate-500 block mb-1">期待収益率 (リターン μ)</span>
+            <span className="text-2xl font-extrabold text-blue-700">{mu.toFixed(2)}%</span>
           </div>
-          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <h2 className="mb-5 text-xl font-bold text-slate-800">単純収益率</h2>
-            <div className="bg-blue-50 p-6 rounded-xl border border-blue-200 text-center">
-              <p className="text-sm font-mono text-blue-800 mb-2">R = (P₁ - P₀) / P₀</p>
-              <p className="text-4xl font-bold text-blue-600">{p0 ? (((p1 - p0) / p0) * 100).toFixed(2) : 0}%</p>
-            </div>
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-center">
+            <span className="text-xs font-bold text-slate-500 block mb-1">収益率の分散 (σ²)</span>
+            <span className="text-2xl font-extrabold text-slate-700">{variance.toFixed(2)}</span>
+          </div>
+          <div className="bg-red-50 p-4 rounded-xl border border-red-200 text-center">
+            <span className="text-xs font-bold text-red-800 block mb-1">標準偏差 (リスク σ)</span>
+            <span className="text-2xl font-extrabold text-red-600">{sig.toFixed(2)}%</span>
           </div>
         </div>
       );
     }
 
-    function HistoricalMode({ activeMode, setActiveMode }) {
+    /* =========================================================
+       2. ローン返済シミュレーション
+       ========================================================= */
+    let loanState = { principal: 10000000, rate: 5, years: 10, set: null };
+
+    function InputsLoan() {
+      const [s, setS] = useState(loanState);
+      loanState.set = setS;
+      const update = (k, v) => { loanState[k] = v; setS({...loanState}); };
+
       return (
-        <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
-          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 h-fit">
-            <ModeSelector activeMode={activeMode} setActiveMode={setActiveMode} />
-            <p className="text-sm text-slate-500">※ 過去データ配列の計算用モジュールです。今回はUIデモとして省略しています。</p>
+        <div className="space-y-4">
+          <InputField label="借入元金 (円)" value={s.principal} onChange={e=>update('principal', Number(e.target.value))} />
+          <InputField label="年利子率 r" value={s.rate} onChange={e=>update('rate', Number(e.target.value))} step="0.1" unit="%" />
+          <InputField label="返済期間 T" value={s.years} onChange={e=>update('years', Number(e.target.value))} unit="年" />
+        </div>
+      );
+    }
+
+    function ResultsLoan() {
+      const s = loanState;
+      const p = s.principal, r = s.rate/100, t = s.years;
+      
+      // 1. 一括
+      const int1 = p * r * t; const tot1 = p + int1;
+      // 2. 元金均等
+      const prinPerYr = p / t; let int2 = 0;
+      for(let i=0; i<t; i++) int2 += (p - prinPerYr*i) * r;
+      const tot2 = p + int2;
+      // 3. 元利均等
+      const y = r > 0 ? p * (r / (1 - Math.pow(1+r, -t))) : p/t;
+      const tot3 = y * t; const int3 = tot3 - p;
+
+      const format = (n) => Math.round(n).toLocaleString();
+
+      return (
+        <div className="space-y-4 text-sm">
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <h3 className="font-bold text-slate-800 mb-2 border-b border-slate-200 pb-2">① 一括返済</h3>
+            <div className="flex justify-between mb-1"><span className="text-slate-500">毎年末利息:</span><span className="font-medium">{format(p*r)} 円</span></div>
+            <div className="flex justify-between mb-1"><span className="text-slate-500">総利息額:</span><span className="font-medium">{format(int1)} 円</span></div>
+            <div className="flex justify-between text-base"><span className="font-bold text-slate-700">総返済額:</span><span className="font-bold text-blue-700">{format(tot1)} 円</span></div>
+          </div>
+          
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <h3 className="font-bold text-slate-800 mb-2 border-b border-slate-200 pb-2">② 元金均等返済</h3>
+            <div className="flex justify-between mb-1"><span className="text-slate-500">初年度返済:</span><span className="font-medium">{format(prinPerYr + p*r)} 円</span></div>
+            <div className="flex justify-between mb-1"><span className="text-slate-500">総利息額:</span><span className="font-medium">{format(int2)} 円</span></div>
+            <div className="flex justify-between text-base"><span className="font-bold text-slate-700">総返済額:</span><span className="font-bold text-blue-700">{format(tot2)} 円</span></div>
+          </div>
+          
+          <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 shadow-sm">
+            <h3 className="font-bold text-blue-900 mb-2 border-b border-blue-200 pb-2">③ 元利均等返済</h3>
+            <div className="flex justify-between mb-1"><span className="text-slate-600">毎年一律返済:</span><span className="font-bold text-blue-800">{format(y)} 円</span></div>
+            <div className="flex justify-between mb-1"><span className="text-slate-600">総利息額:</span><span className="font-medium text-blue-800">{format(int3)} 円</span></div>
+            <div className="flex justify-between text-lg mt-1 pt-1 border-t border-blue-200/50"><span className="font-extrabold text-blue-900">総返済額:</span><span className="font-extrabold text-red-600">{format(tot3)} 円</span></div>
           </div>
         </div>
       );
     }
 
-    function ScenarioMode({ activeMode, setActiveMode }) {
-       return (
-        <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
-          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 h-fit">
-            <ModeSelector activeMode={activeMode} setActiveMode={setActiveMode} />
-            <p className="text-sm text-slate-500">※ シナリオベースの分散投資計算モジュールです。ポートフォリオ最適化機能をお使いください。</p>
+    /* =========================================================
+       1. 単利・複利
+       ========================================================= */
+    let depState = { principal: 1000000, rate: 5, years: 2, set: null };
+
+    function InputsDeposit() {
+      const [s, setS] = useState(depState);
+      depState.set = setS;
+      const update = (k, v) => { depState[k] = v; setS({...depState}); };
+
+      return (
+        <div className="space-y-4">
+          <InputField label="元金 V0 (円)" value={s.principal} onChange={e=>update('principal', Number(e.target.value))} />
+          <InputField label="年利子率 r" value={s.rate} onChange={e=>update('rate', Number(e.target.value))} step="0.1" unit="%" />
+          <InputField label="期間 T" value={s.years} onChange={e=>update('years', Number(e.target.value))} unit="年" />
+        </div>
+      );
+    }
+
+    function ResultsDeposit() {
+      const s = depState;
+      const r = s.rate / 100;
+      const simple = s.principal * (1 + r * s.years);
+      const compound = s.principal * Math.pow(1 + r, s.years);
+      const format = (n) => Math.round(n).toLocaleString();
+
+      return (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 text-center">
+            <span className="text-sm font-bold text-slate-500 block mb-2">単利による元利合計</span>
+            <span className="text-3xl font-extrabold text-slate-800">{format(simple)}</span>
+            <span className="text-sm font-bold text-slate-400 ml-1">円</span>
+          </div>
+          <div className="bg-blue-50 p-5 rounded-xl border border-blue-200 text-center shadow-sm">
+            <span className="text-sm font-bold text-blue-800 block mb-2">複利による元利合計</span>
+            <span className="text-3xl font-extrabold text-blue-700">{format(compound)}</span>
+            <span className="text-sm font-bold text-blue-500 ml-1">円</span>
           </div>
         </div>
       );
